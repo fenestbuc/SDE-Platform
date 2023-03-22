@@ -23,6 +23,11 @@ app.post('/', (req, res) => {
     });
 });
 
+// Serve index.html file for the root URL
+app.get('/', (req, res) => {
+  res.sendFile(__dirname + '/public/index.html');
+});
+
 // Create server
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
@@ -47,7 +52,10 @@ function decryptData(data) {
   for (const [key, value] of Object.entries(data)) {
     if (key !== 'iv' && key !== 'key') {
       const ciphertext = value;
-
+      app.get('/', (req, res) => {
+        res.sendFile(__dirname + '/public/index.html');
+      });
+      
       const plaintext = window.crypto.subtle.decrypt(
         algorithm,
         key,
