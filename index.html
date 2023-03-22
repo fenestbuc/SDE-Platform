@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html>
     <head>
         <title>Secure Data Exchange Platform</title>
@@ -6,12 +7,12 @@
     <body>
         <h1>Secure Data Exchange Platform</h1>
         <div>
-            <form action="server.js" method="post">
+            <form id="data-form">
                 <label for="name">Name:</label>
                 <input type="text" name="name" id="name">
                 <label for="description">Description:</label>
                 <input type="text" name="description" id="description">
-                <input type="submit" value="Send Data">
+                <button type="submit">Send Data</button>
             </form>
         </div>
         <script src="index.js"></script>

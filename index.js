@@ -1,22 +1,23 @@
-const form = document.querySelector('form');
+const form = document.querySelector('#data-form');
 
-form.addEventListener('submit', e => {
+form.addEventListener('submit', async e => {
   e.preventDefault();
 
   // Encrypt data
   const formData = new FormData(form);
-  const encryptedData = encryptData(formData);
+  const encryptedData = await encryptData(formData);
 
   // Send data to server
-  fetch('/server.js', {
+  const response = await fetch('/data', {
     method: 'POST',
     body: encryptedData
-  })
-    .then(response => response.text())
-    .then(data => console.log(data));
+  });
+
+  const result = await response.json();
+  console.log(result.message);
 });
 
-function encryptData(data) {
+async function encryptData(data) {
   const encryptedData = new FormData();
 
   // Use AES encryption algorithm to encrypt the data
@@ -25,7 +26,8 @@ function encryptData(data) {
     length: 256
   };
 
-  const key = crypto.getRandomValues(new Uint8Array(32));
+  const key = await window.crypto.subtle.generateKey(algorithm, true, ['encrypt', 'decrypt']);
+  const exportedKey = await window.crypto.subtle.exportKey('jwk', key);
 
   const iv = crypto.getRandomValues(new Uint8Array(12));
 
@@ -34,17 +36,18 @@ function encryptData(data) {
   for (const pair of data.entries()) {
     const plaintext = encoder.encode(pair[1]);
 
-    const ciphertext = window.crypto.subtle.encrypt(
+    const ciphertext = await window.crypto.subtle.encrypt(
       algorithm,
       key,
-      plaintext
-    ).then(function(encrypted) {
-      encryptedData.append(pair[0], encrypted);
-    });
+      plaintext,
+      iv
+    );
+
+    encryptedData.append(pair[0], new Blob([ciphertext], { type: 'application/octet-stream' }));
   }
 
-  encryptedData.append('iv', iv);
-  encryptedData.append('key', key);
+  encryptedData.append('iv', new Blob([iv], { type: 'application/octet-stream' }));
+  encryptedData.append('key', JSON.stringify(exportedKey));
 
   return encryptedData;
 }
