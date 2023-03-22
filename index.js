@@ -1,53 +1,63 @@
-const form = document.querySelector('#data-form');
+const express = require('express');
+const app = express();
+const bodyParser = require('body-parser');
+const databaseHandler = require('./databaseHandler');
+const path = require('path');
 
-form.addEventListener('submit', async e => {
-  e.preventDefault();
+// Parse incoming requests
+app.use(bodyParser.urlencoded({ extended: false }));
+app.use(bodyParser.json());
 
-  // Encrypt data
-  const formData = new FormData(form);
-  const encryptedData = await encryptData(formData);
+// Define static directory for serving CSS and JS files
+app.use(express.static(path.join(__dirname, 'public')));
 
-  // Send data to server
-  const response = await fetch('/data', {
-    method: 'POST',
-    body: encryptedData
-  });
+// Handle POST request
+app.post('/server', (req, res) => {
+  // Decrypt data
+  const decryptedData = decryptData(req.body);
 
-  const result = await response.json();
-  console.log(result.message);
+  // Store data in database
+  databaseHandler.storeData(decryptedData);
+
+  res.send('Data stored successfully');
 });
 
-async function encryptData(data) {
-  const encryptedData = new FormData();
+// Define route handler for root route
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
-  // Use AES encryption algorithm to encrypt the data
+// Create server
+const port = process.env.PORT || 3000;
+app.listen(port, () => {
+  console.log(`Server started on port ${port}`);
+});
+
+function decryptData(data) {
+  const decryptedData = {};
+
+  // Use AES encryption algorithm to decrypt the data
   const algorithm = {
     name: 'AES-GCM',
     length: 256
   };
 
-  const key = await window.crypto.subtle.generateKey(algorithm, true, ['encrypt', 'decrypt']);
-  const exportedKey = await window.crypto.subtle.exportKey('jwk', key);
+  const key = data.key;
 
-  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const iv = data.iv;
 
-  const encoder = new TextEncoder();
+  const decoder = new TextDecoder();
 
   for (const pair of data.entries()) {
-    const plaintext = encoder.encode(pair[1]);
+    const ciphertext = pair[1];
 
-    const ciphertext = await window.crypto.subtle.encrypt(
+    const plaintext = window.crypto.subtle.decrypt(
       algorithm,
       key,
-      plaintext,
-      iv
-    );
-
-    encryptedData.append(pair[0], new Blob([ciphertext], { type: 'application/octet-stream' }));
+      ciphertext
+    ).then(function(decrypted) {
+      decryptedData[pair[0]] = decoder.decode(decrypted);
+    });
   }
 
-  encryptedData.append('iv', new Blob([iv], { type: 'application/octet-stream' }));
-  encryptedData.append('key', JSON.stringify(exportedKey));
-
-  return encryptedData;
-}
+  return decryptedData;
