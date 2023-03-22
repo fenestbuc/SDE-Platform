@@ -61,3 +61,4 @@ function decryptData(data) {
   }
 
   return decryptedData;
+}
