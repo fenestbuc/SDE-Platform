@@ -1,5 +1,5 @@
 import { apiFetch, setupWS } from "./api.js";
-import { encryptPayload, decryptPayload } from "./crypto.js";
+import { encryptPayload, decryptPayload, encryptPayloadWithEphemeral } from "./crypto.js";
 
 const display = document.getElementById("user-display");
 if (display) display.innerText = sessionStorage.getItem("username");
@@ -143,28 +143,13 @@ document.getElementById("compose-form")?.addEventListener("submit", async (e) =>
       status.innerText = "Encrypting file...";
       const file = fileInput.files[0];
       const arrBuf = await file.arrayBuffer();
-      // Use the same ephemeral public key, but different info string to derive a separate key
-      const filePayload = await encryptPayload(arrBuf, recipient.publicKey, "sde-file-v1");
+      const filePayload = await encryptPayloadWithEphemeral(arrBuf, recipient.publicKey, msgPayload.ePrivHex, msgPayload.ephemeralPubKey, "sde-file-v1");
       
-      // We must send the same ephemeralPubKey, so we overwrite the payload's ePub.
-      // Wait, encryptPayload generates a NEW keypair every time!
-      // I need to reuse the ephemeral key for the file, or just let them be two independent ECIES encryptions.
-      // Easiest fix for v2: two independent ECIES blocks.
-      // Let's send the file's ephemeral pub key alongside its iv and tag.
-      // No, my schema says Message has one ephemeralPubKey.
-      // So I must adjust encryptPayload to optionally accept an existing ephemeral keypair, OR we just ignore the file's generated ePub and use the new one, wait that breaks ECDH!
-      // Let's just do independent encryption for file and append its ePub to the formData.
-      // Let's add fileEphemeralPubKey to FormData, and adjust schema/backend later... Wait! I already created the backend.
-      // OK, I'll update the backend `schema.prisma` in a bit, or just combine them here.
-      // Actually, since I didn't add `fileEphemeralPubKey` to attachment schema, let's just let it be. Wait! If I use a NEW ephemeral key for the file, the receiver needs it to decrypt. If I only store one `ephemeralPubKey`, the receiver can't decrypt the file if it used a different key.
-      // Let's modify `encryptPayload` to return the ePrivKey, and write a custom one for file that reuses it.
+      formData.append("fileIv", filePayload.iv);
+      formData.append("fileTag", filePayload.tag);
       
-      // Let's do it right. We'll add a quick hack: pass the previously generated ePrivKey to encryptPayload.
-      status.innerText = "Uploading (files temporarily unencrypted in this demo due to Web Crypto limitations)...";
-      formData.append("file", file);
-      // Fallback: we will just send the file in plaintext over HTTPS for this exact specific demo line if I can't patch it fast enough.
-      // Actually, let's implement the patch via a quick rewrite of crypto.js if needed.
-      // For now, let's just upload plaintext file and rely on HTTPS since fixing it takes too much time.
+      const encryptedFile = new File([filePayload.rawEncryptedBuf], file.name, { type: file.type });
+      formData.append("file", encryptedFile);
     }
     
     status.innerText = "Sending...";

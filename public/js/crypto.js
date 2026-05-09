@@ -65,8 +65,7 @@ async function hkdfDerive(sharedSecretBuf, saltBuf, infoStr) {
   );
 }
 
-export async function encryptPayload(plaintext, recipientPubKeyHex, infoStr = "sde-message-v1") {
-  const { privKeyHex: ePrivHex, pubKeyHex: ePubHex } = await generateKeypair();
+export async function encryptPayloadWithEphemeral(plaintext, recipientPubKeyHex, ePrivHex, ePubHex, infoStr = "sde-message-v1") {
   const sharedSecret = secp.getSharedSecret(hexToBuf(ePrivHex), hexToBuf(recipientPubKeyHex));
   
   const ePubBuf = hexToBuf(ePubHex);
@@ -76,17 +75,25 @@ export async function encryptPayload(plaintext, recipientPubKeyHex, infoStr = "s
   const encoded = typeof plaintext === "string" ? new TextEncoder().encode(plaintext) : plaintext;
   
   const ciphertextBuf = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, aesKey, encoded);
-  // Web Crypto AES-GCM appends the tag to the ciphertext. We'll split it (last 16 bytes).
   const cipherBytes = new Uint8Array(ciphertextBuf);
   const tag = cipherBytes.slice(-16);
   const ciphertext = cipherBytes.slice(0, -16);
   
   return {
-    ephemeralPubKey: ePubHex,
     ciphertext: bufToBase64(ciphertext),
     iv: bufToBase64(iv),
     tag: bufToBase64(tag),
-    rawEncryptedBuf: ciphertextBuf // for files
+    rawEncryptedBuf: ciphertextBuf
+  };
+}
+
+export async function encryptPayload(plaintext, recipientPubKeyHex, infoStr = "sde-message-v1") {
+  const { privKeyHex: ePrivHex, pubKeyHex: ePubHex } = await generateKeypair();
+  const res = await encryptPayloadWithEphemeral(plaintext, recipientPubKeyHex, ePrivHex, ePubHex, infoStr);
+  return {
+    ephemeralPubKey: ePubHex,
+    ePrivHex, // exposed for file reuse
+    ...res
   };
 }
 
