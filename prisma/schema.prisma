@@ -1,0 +1,76 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               String    @id @default(uuid())
+  email            String    @unique
+  username         String    @unique
+  displayName      String?
+  passwordHash     String
+  role             String    @default("user") // "user" | "admin"
+  publicKey        String    // hex-encoded secp256k1 public key
+  encryptedPrivKey String    // AES-GCM encrypted private key (client-side)
+  salt             String    // PBKDF2 salt for privKey encryption
+  iv               String    // AES-GCM IV for privKey encryption
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  lastLoginAt      DateTime?
+
+  sentMessages     Message[] @relation("SentMessages")
+  receivedMessages Message[] @relation("ReceivedMessages")
+  sessions         Session[]
+
+  @@index([username])
+  @@index([email])
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique
+  type      String   // "access" | "refresh"
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+}
+
+model Message {
+  id              String      @id @default(uuid())
+  senderId        String
+  recipientId     String
+  ephemeralPubKey String      // hex-encoded ephemeral public key for ECIES
+  ciphertext      String      // base64 AES-GCM ciphertext (message body)
+  iv              String      // base64 AES-GCM IV
+  tag             String      // base64 AES-GCM auth tag
+  hasAttachment   Boolean     @default(false)
+  attachment      Attachment?
+  readAt          DateTime?
+  createdAt       DateTime    @default(now())
+
+  sender    User @relation("SentMessages", fields: [senderId], references: [id])
+  recipient User @relation("ReceivedMessages", fields: [recipientId], references: [id])
+
+  @@index([recipientId, createdAt])
+  @@index([senderId, createdAt])
+}
+
+model Attachment {
+  id          String  @id @default(uuid())
+  messageId   String  @unique
+  filename    String  // original filename
+  storagePath String  // path on disk / object key
+  fileSize    Int     // bytes
+  contentType String  // original mime type
+  iv          String  // base64 AES-GCM IV for file encryption
+  tag         String  // base64 AES-GCM auth tag for file encryption
+  message     Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+}

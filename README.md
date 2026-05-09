@@ -1,62 +1,52 @@
-# Secure Data Exchange Platform
+# Secure Data Exchange Platform (SDE-Platform) v2
 
-This is a simple web application for securely exchanging data between users. The application allows users to enter their name and description into a form, encrypt the data using AES-GCM encryption algorithm and store the encrypted data in a database file.
+A production-grade, end-to-end encrypted secure data exchange platform built with TypeScript, Node.js, and vanilla Web Crypto.
 
-## Getting Started
+## Architecture & Security Model
 
-These instructions will help you set up the project on your local machine for development and testing purposes.
+This project implements a "zero-knowledge" messaging model similar to ProtonMail or Signal:
 
-### Prerequisites
+- **End-to-End Encryption (E2EE):** Messages and files are encrypted using ECIES (secp256k1 + AES-GCM-256).
+- **Client-Side Key Management:** Each user's private key is encrypted with their password (PBKDF2-HMAC-SHA256 + AES-GCM) *before* leaving the browser. The server never sees the plaintext private key.
+- **Untrusted Server:** The Express/Postgres backend acts only as a relay. It stores ciphertext blobs and encrypted keys. It cannot read the content of any message or file.
+- **Real-Time:** WebSockets push live `new_message` and `read_receipt` notifications to authenticated clients.
 
-You need to have the following installed on your machine:
+## Tech Stack
 
-- Node.js
-- Express
-- Body-parser
+- **Backend:** Node.js 20, Express, TypeScript, Prisma (SQLite/PostgreSQL), WebSocket
+- **Frontend:** Vanilla JS (ES Modules), Tailwind CSS, Web Crypto API
+- **Cryptography:** `@noble/curves/secp256k1`, AES-GCM, PBKDF2, HKDF-SHA256
 
-### Installing
+## Setup & Development
 
-Clone the repository from GitHub and install the required packages using the following commands:
-
-```
+### Local Setup
+```bash
 git clone https://github.com/fenestbuc/SDE-Platform.git
-cd repo
+cd SDE-Platform
+
 npm install
+npm run db:migrate   # Setup SQLite dev database
+npm run dev          # Start the server with tsx watch
 ```
 
-### Setting up the Database
+The application will be running at `http://localhost:3000`.
 
-Create a `data.csv` file in the root directory of the project. This file will be used to store the data that is sent to the server.
-
-### Running the Project
-
-Start the server by running the following command:
-
-```
-node server.js
+### Create Admin Account
+```bash
+npm run create-admin -- --email admin@example.com --username admin --password "SecurePass123!"
 ```
 
-The server will now be running on port 3000. You can test the project by opening `http://localhost:3000` in your browser.
+### Docker
+```bash
+docker compose up --build
+```
 
-## Usage
+## Deployment (Fly.io)
 
-The project consists of the following files:
-
-- `index.html`: This file contains the HTML code for the web page.
-- `styles.css`: This file contains the CSS code for styling the web page.
-- `index.js`: This file contains the JavaScript code for the web page.
-- `server.js`: This file contains the code for handling requests from the web page.
-- `databaseHandler.js`: This file contains the code for interacting with the database.
-- `data.csv`: This file contains the data that is stored in the database.
-
-### Submitting Data
-
-When the user submits the form on the web page, the data is encrypted using AES encryption and then sent to the server. The server then decrypts the data and stores it in the `data.csv` file.
-
-## Contributing
-
-Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
+1. Install `flyctl`.
+2. Run `fly launch`.
+3. Set secrets: `fly secrets set JWT_SECRET=xyz JWT_REFRESH_SECRET=abc`.
+4. Deploy: `fly deploy`.
 
 ## License
-
-This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.
+MIT

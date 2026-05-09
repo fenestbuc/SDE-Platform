@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=file:/app/data/prod.db
+      - JWT_SECRET=${JWT_SECRET:-dev-secret}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:-dev-refresh-secret}
+      - UPLOAD_DIR=/app/uploads
+    volumes:
+      - app_data:/app/data
+      - app_uploads:/app/uploads
+
+volumes:
+  app_data:
+  app_uploads:

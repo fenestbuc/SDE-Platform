@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Dashboard - SDE</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100">
+  <nav class="bg-blue-600 text-white p-4 flex justify-between">
+    <div class="font-bold">SDE Dashboard</div>
+    <div>
+      <span id="user-display" class="mr-4"></span>
+      <button id="logout-btn" class="underline">Logout</button>
+    </div>
+  </nav>
+  <div class="container mx-auto mt-8 flex space-x-8">
+    <div class="w-1/3">
+      <h3 class="text-xl font-bold mb-4">Compose</h3>
+      <form id="compose-form" class="bg-white p-4 rounded shadow">
+        <div class="mb-4">
+          <label class="block text-sm">Recipient Username</label>
+          <input type="text" id="compose-to" class="w-full border p-2 rounded" required>
+        </div>
+        <div class="mb-4">
+          <label class="block text-sm">Message</label>
+          <textarea id="compose-body" class="w-full border p-2 rounded" rows="4" required></textarea>
+        </div>
+        <div class="mb-4">
+          <label class="block text-sm">Attachment (Max 50MB)</label>
+          <input type="file" id="compose-file" class="w-full">
+        </div>
+        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded" id="compose-submit">Send Encrypted</button>
+        <div id="compose-status" class="mt-2 text-sm"></div>
+      </form>
+    </div>
+    <div class="w-2/3">
+      <div class="flex border-b mb-4">
+        <button id="tab-inbox" class="px-4 py-2 font-bold border-b-2 border-blue-600">Inbox</button>
+        <button id="tab-sent" class="px-4 py-2 text-gray-500 hover:text-black">Sent</button>
+      </div>
+      <div id="message-list" class="space-y-4"></div>
+    </div>
+  </div>
+
+  <div id="message-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+    <div class="bg-white p-6 rounded shadow-lg w-1/2">
+      <h3 class="text-xl font-bold mb-2" id="modal-title">Message</h3>
+      <p class="text-gray-600 text-sm mb-4" id="modal-meta"></p>
+      <div class="p-4 bg-gray-100 rounded mb-4 whitespace-pre-wrap" id="modal-body"></div>
+      <div id="modal-attachment" class="mb-4 hidden">
+        <button id="download-btn" class="bg-green-600 text-white px-4 py-2 rounded">Download Attachment</button>
+      </div>
+      <button id="modal-close" class="bg-gray-800 text-white px-4 py-2 rounded">Close</button>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@noble/curves@1.8.1/secp256k1.js"></script>
+  <script type="module" src="js/dashboard.js"></script>
+</body>
+</html>

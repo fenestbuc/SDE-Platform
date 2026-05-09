@@ -1,3 +1,7 @@
 node_modules/
-npm-debug.log
-data.csv
+dist/
+uploads/
+.env
+*.db
+*.db-journal
+ coverage/
