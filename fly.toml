@@ -1,0 +1,23 @@
+app = "sde-platform-v2"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "3000"
+  NODE_ENV = "production"
+  UPLOAD_DIR = "/app/data/uploads"
+  DATABASE_URL = "file:/app/data/prod.db"
+
+[[mounts]]
+  source = "sde_data"
+  destination = "/app/data"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ["app"]
