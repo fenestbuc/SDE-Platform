@@ -2,6 +2,7 @@ import * as secp from "@noble/curves/secp256k1";
 import { bufToHex, hexToBuf, bufToBase64, base64ToBuf, getPBKDF2Key, hkdfDerive } from "../utils/crypto-helpers";
 
 let decryptedPrivateKey: string | null = null;
+const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB
 
 self.onmessage = async (e) => {
   const { type, payload, id } = e.data;
@@ -15,8 +16,7 @@ self.onmessage = async (e) => {
       
       const key = await getPBKDF2Key(password, salt);
       const privBuf = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, encryptedBuf);
-      decryptedPrivateKey = bufToHex(privBuf);
-      
+      decryptedPrivateKey = bufToHex(privBuf as any);
       self.postMessage({ id, success: true });
     }
     
@@ -111,6 +111,101 @@ self.onmessage = async (e) => {
       } else {
         self.postMessage({ id, success: true, result: decryptedBuf });
       }
+    }
+    
+    // NEW CHUNKED ENCRYPTION
+    else if (type === "ENCRYPT_FILE_CHUNKED") {
+      const { fileBlob, recipientPubKeyHex, infoStr, existingEPrivHex, existingEPubHex } = payload;
+      
+      let ePrivHex = existingEPrivHex;
+      let ePubHex = existingEPubHex;
+      if (!ePrivHex || !ePubHex) throw new Error("ePriv/ePub required for file encryption");
+      
+      const sharedSecret = secp.secp256k1.getSharedSecret(hexToBuf(ePrivHex), hexToBuf(recipientPubKeyHex));
+      const ePubBuf = hexToBuf(ePubHex);
+      const aesKey = await hkdfDerive(sharedSecret, ePubBuf, infoStr || "sde-file-v1");
+      
+      const totalChunks = Math.ceil(fileBlob.size / CHUNK_SIZE);
+      const encryptedChunks: Blob[] = [];
+      
+      // Shared file-level IV to store in the DB (for the first chunk or metadata)
+      // Actually, we can generate a single random IV to pass back, but encrypt each chunk with a unique sub-IV.
+      // Let's generate a 12-byte random base IV.
+      const baseIv = crypto.getRandomValues(new Uint8Array(12));
+      
+      for (let i = 0; i < totalChunks; i++) {
+        const start = i * CHUNK_SIZE;
+        const end = Math.min(fileBlob.size, start + CHUNK_SIZE);
+        const chunkBlob = fileBlob.slice(start, end);
+        const chunkBuf = await chunkBlob.arrayBuffer();
+        
+        // Chunk IV: 8 bytes random, 4 bytes counter
+        const chunkIv = new Uint8Array(12);
+        crypto.getRandomValues(chunkIv.subarray(0, 8)); // 8 bytes random nonce
+        new DataView(chunkIv.buffer).setUint32(8, i, false); // 4 bytes counter
+        
+        const ciphertextBuf = await crypto.subtle.encrypt({ name: "AES-GCM", iv: chunkIv }, aesKey, chunkBuf);
+        
+        // We append the 12-byte chunkIv to the ciphertextBuf so we can decrypt it later
+        // Structure: [chunkIv (12 bytes)] [ciphertext + tag]
+        const chunkWithIv = new Uint8Array(chunkIv.length + ciphertextBuf.byteLength);
+        chunkWithIv.set(chunkIv, 0);
+        chunkWithIv.set(new Uint8Array(ciphertextBuf), chunkIv.length);
+        
+        encryptedChunks.push(new Blob([chunkWithIv]));
+        
+        self.postMessage({ type: "PROGRESS", id, payload: { progress: Math.round(((i + 1) / totalChunks) * 100) } });
+      }
+      
+      const finalBlob = new Blob(encryptedChunks);
+      
+      self.postMessage({ id, success: true, result: {
+        ephemeralPubKey: ePubHex,
+        iv: bufToBase64(baseIv),
+        tag: bufToBase64(new Uint8Array(16)), // Dummy tag for DB compatibility
+        rawEncryptedBlob: finalBlob
+      }});
+    }
+    
+    // NEW CHUNKED DECRYPTION
+    else if (type === "DECRYPT_FILE_CHUNKED") {
+      if (!decryptedPrivateKey) throw new Error("Private key not loaded in worker");
+      const { encryptedFileBlob, ePubHex, infoStr } = payload;
+      
+      const ePubBuf = hexToBuf(ePubHex);
+      const sharedSecret = secp.secp256k1.getSharedSecret(hexToBuf(decryptedPrivateKey), ePubBuf);
+      const aesKey = await hkdfDerive(sharedSecret, ePubBuf, infoStr || "sde-file-v1");
+      
+      const decryptedChunks: Blob[] = [];
+      let offset = 0;
+      let totalProcessed = 0;
+      const totalSize = encryptedFileBlob.size;
+      
+      // We don't know exact chunk count easily without parsing, so we iterate
+      // But wait! AES-GCM ciphertext size = plaintext size + 16 (tag).
+      // Plus 12 bytes IV = + 28 bytes per chunk.
+      // Maximum chunk ciphertext size = CHUNK_SIZE + 28.
+      const ENCRYPTED_CHUNK_MAX = CHUNK_SIZE + 28;
+      
+      while (offset < totalSize) {
+        const end = Math.min(totalSize, offset + ENCRYPTED_CHUNK_MAX);
+        const chunkBlob = encryptedFileBlob.slice(offset, end);
+        const chunkBuf = await chunkBlob.arrayBuffer();
+        
+        const chunkIv = new Uint8Array(chunkBuf.slice(0, 12));
+        const ciphertextWithTag = chunkBuf.slice(12);
+        
+        const decryptedBuf = await crypto.subtle.decrypt({ name: "AES-GCM", iv: chunkIv }, aesKey, ciphertextWithTag);
+        decryptedChunks.push(new Blob([decryptedBuf]));
+        
+        offset += chunkBuf.byteLength;
+        totalProcessed += chunkBuf.byteLength;
+        
+        self.postMessage({ type: "PROGRESS", id, payload: { progress: Math.round((totalProcessed / totalSize) * 100) } });
+      }
+      
+      const finalBlob = new Blob(decryptedChunks);
+      self.postMessage({ id, success: true, result: { decryptedBlob: finalBlob } });
     }
     
   } catch (err: any) {

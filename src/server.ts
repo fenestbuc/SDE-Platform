@@ -46,6 +46,10 @@ app.get("/health", (req, res) => {
 // Serve frontend
 app.use(express.static(path.join(__dirname, "../src/client/dist")));
 
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "../src/client/dist/index.html"));
+});
+
 app.use(errorHandler);
 
 // WS

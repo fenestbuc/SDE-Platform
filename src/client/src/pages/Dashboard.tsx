@@ -7,6 +7,7 @@ export default function Dashboard() {
   const [tab, setTab] = useState<'inbox'|'sent'>('inbox');
   const [messages, setMessages] = useState<any[]>([]);
   const [status, setStatus] = useState('');
+  const [progress, setProgress] = useState(0);
   
   const [toUser, setToUser] = useState('');
   const [bodyText, setBodyText] = useState('');
@@ -32,6 +33,7 @@ export default function Dashboard() {
     e.preventDefault();
     if (!worker) return;
     setStatus('Looking up recipient...');
+    setProgress(0);
     
     try {
       const recipient = await apiFetch(`/users/${toUser}`);
@@ -64,44 +66,49 @@ export default function Dashboard() {
       
       // Step 2: Encrypt file if present
       if (file) {
-        setStatus('Encrypting file...');
+        setStatus('Encrypting file (chunked)...');
         const fileId = "encf-" + Date.now();
-        const arrBuf = await file.arrayBuffer();
         
-        const doEncryptFile = () => new Promise<any>((resolve, reject) => {
+        const doEncryptFileChunked = () => new Promise<any>((resolve, reject) => {
           const handler = (ev: MessageEvent) => {
             if (ev.data.id === fileId) {
-              worker.removeEventListener('message', handler);
-              ev.data.success ? resolve(ev.data.result) : reject(ev.data.error);
+              if (ev.data.type === 'PROGRESS') {
+                setProgress(ev.data.payload.progress);
+              } else {
+                worker.removeEventListener('message', handler);
+                ev.data.success ? resolve(ev.data.result) : reject(ev.data.error);
+              }
             }
           };
           worker.addEventListener('message', handler);
-          worker.postMessage({ type: 'ENCRYPT_PAYLOAD', id: fileId, payload: {
-            plaintext: arrBuf,
+          worker.postMessage({ type: 'ENCRYPT_FILE_CHUNKED', id: fileId, payload: {
+            fileBlob: file,
             recipientPubKeyHex: recipient.publicKey,
             existingEPrivHex: msgPayload.ePrivHex,
             existingEPubHex: msgPayload.ephemeralPubKey,
             infoStr: "sde-file-v1"
-          }}, [arrBuf]);
+          }});
         });
         
-        const filePayload = await doEncryptFile();
+        const filePayload = await doEncryptFileChunked();
         formData.append('fileIv', filePayload.iv);
         formData.append('fileTag', filePayload.tag);
         
-        const encryptedFile = new File([filePayload.rawEncryptedBuf], file.name, { type: file.type });
+        const encryptedFile = new File([filePayload.rawEncryptedBlob], file.name, { type: file.type });
         formData.append('file', encryptedFile);
       }
       
-      setStatus('Sending...');
+      setStatus('Uploading...');
       await apiFetch('/messages', { method: 'POST', body: formData });
       setStatus('Message sent successfully!');
       setBodyText('');
       setFile(null);
+      setProgress(0);
       if (tab === 'sent') loadMessages();
       
     } catch (err: any) {
       setStatus('Error: ' + err.message);
+      setProgress(0);
     }
   };
 
@@ -144,38 +151,46 @@ export default function Dashboard() {
   const downloadFile = async () => {
     if (!worker || !activeMessage?.attachment) return;
     try {
+      setStatus('Downloading encrypted file...');
       const blob = await apiFetch(`/messages/${activeMessage.id}/attachment`);
-      const arrBuf = await blob.arrayBuffer();
       
+      setStatus('Decrypting file (chunked)...');
+      setProgress(0);
       const msgId = "decf-" + Date.now();
-      const doDecryptFile = () => new Promise<ArrayBuffer>((resolve, reject) => {
+      
+      const doDecryptFileChunked = () => new Promise<Blob>((resolve, reject) => {
         const handler = (ev: MessageEvent) => {
           if (ev.data.id === msgId) {
-            worker.removeEventListener('message', handler);
-            ev.data.success ? resolve(ev.data.result) : reject(ev.data.error);
+            if (ev.data.type === 'PROGRESS') {
+              setProgress(ev.data.payload.progress);
+            } else {
+              worker.removeEventListener('message', handler);
+              ev.data.success ? resolve(ev.data.result.decryptedBlob) : reject(ev.data.error);
+            }
           }
         };
         worker.addEventListener('message', handler);
-        worker.postMessage({ type: 'DECRYPT_PAYLOAD', id: msgId, payload: {
-          rawCiphertextBuf: arrBuf,
-          ivB64: activeMessage.attachment.iv,
-          tagB64: activeMessage.attachment.tag,
+        worker.postMessage({ type: 'DECRYPT_FILE_CHUNKED', id: msgId, payload: {
+          encryptedFileBlob: blob,
           ePubHex: activeMessage.ephemeralPubKey,
-          isString: false,
           infoStr: "sde-file-v1"
-        }}, [arrBuf]);
+        }});
       });
       
-      const decryptedBuf = await doDecryptFile();
-      const fileBlob = new Blob([decryptedBuf], { type: activeMessage.attachment.contentType });
+      const decryptedBlob = await doDecryptFileChunked();
+      const fileBlob = new Blob([decryptedBlob], { type: activeMessage.attachment.contentType });
       const url = URL.createObjectURL(fileBlob);
       const a = document.createElement('a');
       a.href = url;
       a.download = activeMessage.attachment.filename;
       a.click();
       URL.revokeObjectURL(url);
+      setStatus('');
+      setProgress(0);
     } catch (e: any) {
       alert('Download error: ' + e.message);
+      setStatus('');
+      setProgress(0);
     }
   };
 
@@ -195,18 +210,27 @@ export default function Dashboard() {
           <form onSubmit={handleCompose} className="bg-white p-4 rounded shadow">
             <div className="mb-4">
               <label className="block text-sm">Recipient Username</label>
-              <input type="text" value={toUser} onChange={e => setToUser(e.target.value)} className="w-full border p-2 rounded" required />
+              <input type="text" id="compose-to" value={toUser} onChange={e => setToUser(e.target.value)} className="w-full border p-2 rounded" required />
             </div>
             <div className="mb-4">
               <label className="block text-sm">Message</label>
-              <textarea value={bodyText} onChange={e => setBodyText(e.target.value)} className="w-full border p-2 rounded" rows={4} required></textarea>
+              <textarea id="compose-body" value={bodyText} onChange={e => setBodyText(e.target.value)} className="w-full border p-2 rounded" rows={4} required></textarea>
             </div>
             <div className="mb-4">
-              <label className="block text-sm">Attachment (Max 50MB)</label>
-              <input type="file" onChange={e => setFile(e.target.files?.[0] || null)} className="w-full" />
+              <label className="block text-sm">Attachment (Up to 1GB chunked)</label>
+              <input type="file" id="compose-file" onChange={e => setFile(e.target.files?.[0] || null)} className="w-full" />
             </div>
             <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded">Send Encrypted</button>
-            {status && <div className="mt-2 text-sm text-blue-600">{status}</div>}
+            {status && (
+              <div className="mt-4">
+                <div className="text-sm text-blue-600 mb-1">{status}</div>
+                {progress > 0 && progress < 100 && (
+                  <div className="w-full bg-gray-200 rounded-full h-2.5">
+                    <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: `${progress}%` }}></div>
+                  </div>
+                )}
+              </div>
+            )}
           </form>
         </div>
         
