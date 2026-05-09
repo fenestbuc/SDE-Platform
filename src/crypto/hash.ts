@@ -1,5 +1,5 @@
-import bcrypt from "bcrypt";
-import crypto from "crypto";
+import * as bcrypt from "bcryptjs";
+import * as crypto from "crypto";
 import { promisify } from "util";
 
 const pbkdf2 = promisify(crypto.pbkdf2);

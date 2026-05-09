@@ -7,7 +7,6 @@ primary_region = "iad"
 [env]
   PORT = "3000"
   NODE_ENV = "production"
-  UPLOAD_DIR = "/app/data/uploads"
   DATABASE_URL = "file:/app/data/prod.db"
 
 [[mounts]]
