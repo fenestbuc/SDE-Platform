@@ -1,30 +1,26 @@
-import { useState, useEffect } from 'react'
+import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import Login from './pages/Login';
+import { useAppStore } from './store/useAppStore';
 
-// Basic setup to ensure the Web Worker and basic React functionality work
-function App() {
-  const [workerStatus, setWorkerStatus] = useState('Initializing...');
-
-  useEffect(() => {
-    const worker = new Worker(new URL('./workers/crypto.worker.ts', import.meta.url), { type: 'module' });
-    
-    worker.onmessage = (e) => {
-      console.log("Message from worker:", e.data);
-    };
-
-    setWorkerStatus('Worker ready (Check Console)');
-
-    return () => {
-      worker.terminate();
-    };
-  }, []);
-
-  return (
-    <div className="bg-gray-100 min-h-screen p-8 text-center">
-      <h1 className="text-4xl font-bold mb-4">SDE-Platform v3 (React)</h1>
-      <p className="text-xl mb-4">Web Worker Status: {workerStatus}</p>
-      <p className="text-gray-600">The frontend has been migrated to React with Vite. Crypto operations are now isolated in a Web Worker.</p>
-    </div>
-  )
+function PrivateRoute({ children }: { children: React.ReactNode }) {
+  const isAuthenticated = useAppStore(state => state.isAuthenticated);
+  return isAuthenticated ? <>{children}</> : <Navigate to="/login" />;
 }
 
-export default App
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<div className="p-8 text-center text-xl">Register Page Placeholder</div>} />
+        <Route path="/dashboard" element={
+          <PrivateRoute>
+            <div className="p-8 text-center text-xl">Dashboard Placeholder (Worker active)</div>
+          </PrivateRoute>
+        } />
+        <Route path="*" element={<Navigate to="/dashboard" />} />
+      </Routes>
+    </BrowserRouter>
+  );
+}
