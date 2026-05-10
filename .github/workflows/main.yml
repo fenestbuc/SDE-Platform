@@ -39,6 +39,9 @@ jobs:
         cache: 'npm'
         
     - name: Install dependencies
+      env:
+        DATABASE_URL: "postgresql://sde:sdepassword@localhost:5432/sdedb?schema=public"
+        DIRECT_URL: "postgresql://sde:sdepassword@localhost:5432/sdedb?schema=public"
       run: |
         npm ci
         cd src/client && npm ci
