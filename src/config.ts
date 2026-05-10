@@ -1,11 +1,11 @@
 import { z } from "zod";
 
 const envSchema = z.object({
-  DATABASE_URL: z.string(),
+  DATABASE_URL: z.string().default("postgresql://localhost:5432/db"),
   PORT: z.string().default("3000"),
   NODE_ENV: z.string().default("development"),
-  JWT_SECRET: z.string(),
-  JWT_REFRESH_SECRET: z.string(),
+  JWT_SECRET: z.string().default("dev-secret"),
+  JWT_REFRESH_SECRET: z.string().default("dev-refresh-secret"),
   UPLOAD_DIR: z.string().default("uploads"),
   REDIS_URL: z.string().default("redis://localhost:6379"),
   S3_BUCKET: z.string().optional(),
