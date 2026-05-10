@@ -21,7 +21,14 @@ vi.mock("../../src/db", () => ({
 }));
 
 vi.mock("../../src/websocket/handler", () => ({
-  notifyUser: vi.fn()
+  notifyUser: vi.fn(),
+  isUserOnline: vi.fn().mockReturnValue(true)
+}));
+
+vi.mock("../../src/services/notificationService", () => ({
+  NotificationService: {
+    sendPushToUser: vi.fn()
+  }
 }));
 
 vi.mock("../../src/services/fileService", () => ({
@@ -54,7 +61,6 @@ describe("MessageService", () => {
   it("should send a message with attachment", async () => {
     (db.user.findUnique as any).mockResolvedValue({ id: "user2" });
     (db.message.create as any).mockResolvedValue({ id: "msg2" });
-    (FileService.saveFile as any).mockResolvedValue("upload-path");
 
     await MessageService.sendMessage("user1", {
       recipientId: "user2",
@@ -63,10 +69,13 @@ describe("MessageService", () => {
       iv: "iv1",
       tag: "tag1",
       fileIv: "fiv",
-      fileTag: "ftag"
-    }, { originalname: "test.txt", size: 100, mimetype: "text/plain", buffer: Buffer.from("test") } as any);
+      fileTag: "ftag",
+      storagePath: "mock-storage-path",
+      filename: "test.txt",
+      fileSize: 100,
+      contentType: "text/plain"
+    });
 
-    expect(FileService.saveFile).toHaveBeenCalled();
     expect(db.attachment.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         messageId: "msg2",
