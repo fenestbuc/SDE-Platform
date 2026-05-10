@@ -18,6 +18,11 @@ import { keyRouter } from "./routes/keys";
 import { groupRouter } from "./routes/groups";
 
 const app = express();
+
+// Disable standard static serving in serverless context since Vercel handles it
+if (process.env.NODE_ENV !== 'production' || process.env.RUN_SERVER === 'true') {
+  app.use(express.static(path.join(__dirname, "../src/client/dist")));
+}
 const server = createServer(app);
 
 // Middleware
@@ -54,11 +59,11 @@ app.get("/api/health", (req, res) => {
 });
 
 // Serve frontend
-app.use(express.static(path.join(__dirname, "../src/client/dist")));
-
-app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "../src/client/dist/index.html"));
-});
+if (process.env.NODE_ENV !== 'production' || process.env.RUN_SERVER === 'true') {
+  app.get("*", (req, res) => {
+    res.sendFile(path.join(__dirname, "../src/client/dist/index.html"));
+  });
+}
 
 app.use(errorHandler);
 

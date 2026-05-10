@@ -2,7 +2,7 @@
   "version": 2,
   "builds": [
     {
-      "src": "src/server.ts",
+      "src": "api/index.ts",
       "use": "@vercel/node"
     },
     {
@@ -15,12 +15,12 @@
   ],
   "rewrites": [
     {
-      "source": "/api(.*)",
-      "destination": "/src/server.ts"
+      "source": "/api/(.*)",
+      "destination": "/api/index.ts"
     },
     {
       "source": "/health",
-      "destination": "/src/server.ts"
+      "destination": "/api/index.ts"
     },
     {
       "source": "/assets/(.*)",
