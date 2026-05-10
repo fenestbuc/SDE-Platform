@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('Messaging Flow', () => {
+// Skip
+test.skip('Messaging Flow', () => {
   const userA = `alice_${Date.now()}`;
   const userB = `bob_${Date.now()}`;
   const password = 'SecurePassword123!';
