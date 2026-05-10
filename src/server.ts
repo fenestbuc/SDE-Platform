@@ -62,6 +62,10 @@ app.use(errorHandler);
 // WS
 setupWebSocket(server);
 
-server.listen(config.PORT, () => {
-  console.log(`SDE-Platform running on port ${config.PORT}`);
-});
+if (process.env.NODE_ENV !== 'production' || process.env.RUN_SERVER === 'true') {
+  server.listen(config.PORT, () => {
+    console.log(`SDE-Platform running on port ${config.PORT}`);
+  });
+}
+
+export default app;
