@@ -49,6 +49,9 @@ app.use("/api/groups", groupRouter);
 app.get("/health", (req, res) => {
   res.json({ status: "ok", timestamp: new Date() });
 });
+app.get("/api/health", (req, res) => {
+  res.json({ status: "ok", timestamp: new Date(), api: true });
+});
 
 // Serve frontend
 app.use(express.static(path.join(__dirname, "../src/client/dist")));
