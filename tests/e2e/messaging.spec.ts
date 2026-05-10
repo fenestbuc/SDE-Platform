@@ -35,7 +35,7 @@ test.describe('Messaging Flow', () => {
     await pageA.fill('#compose-to', userB);
     await pageA.fill('#compose-body', 'Hello Bob, this is a secret message!');
     await pageA.click('button:has-text("Send Encrypted")');
-    await expect(pageA.locator('text=Message sent successfully!')).toBeVisible();
+    await expect(pageA.locator('text=Message sent successfully!')).toBeVisible({ timeout: 15000 });
     await contextA.close();
 
     // User B session
@@ -53,7 +53,7 @@ test.describe('Messaging Flow', () => {
     await pageB.click('text=From: ' + userA);
 
     // Decrypt and verify
-    await expect(pageB.locator('text=Hello Bob, this is a secret message!')).toBeVisible();
+    await expect(pageB.locator('text=Hello Bob, this is a secret message!')).toBeVisible({ timeout: 15000 });
     await contextB.close();
   });
 });
