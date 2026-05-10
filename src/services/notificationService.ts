@@ -2,12 +2,16 @@ import * as webpush from "web-push";
 import { config } from "../config";
 import { db } from "../db";
 
-if (config.VAPID_PUBLIC_KEY && config.VAPID_PRIVATE_KEY && config.VAPID_SUBJECT) {
-  webpush.setVapidDetails(
-    config.VAPID_SUBJECT,
-    config.VAPID_PUBLIC_KEY,
-    config.VAPID_PRIVATE_KEY
-  );
+if (config.VAPID_PUBLIC_KEY && config.VAPID_PRIVATE_KEY && config.VAPID_SUBJECT && config.VAPID_PUBLIC_KEY !== "YOUR_VAPID_PUBLIC_KEY") {
+  try {
+    webpush.setVapidDetails(
+      config.VAPID_SUBJECT,
+      config.VAPID_PUBLIC_KEY,
+      config.VAPID_PRIVATE_KEY
+    );
+  } catch (e) {
+    console.warn("Push notifications disabled: Invalid VAPID keys provided.");
+  }
 }
 
 export class NotificationService {
