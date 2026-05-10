@@ -7,7 +7,7 @@ primary_region = "iad"
 [env]
   PORT = "3000"
   NODE_ENV = "production"
-  DATABASE_URL = "file:/app/data/prod.db"
+  DATABASE_URL = "file:./data/prod.db"
 
 [[mounts]]
   source = "sde_data"

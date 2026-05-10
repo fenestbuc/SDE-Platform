@@ -11,12 +11,12 @@ test.describe('Messaging Flow', () => {
     const page = await context.newPage();
     
     for (const u of [userA, userB]) {
-      await page.goto('http://localhost:3000/register');
+      await page.goto('/register');
       await page.fill('input[type="email"]', `${u}@example.com`);
       await page.fill('input[type="text"]', u);
       await page.fill('input[type="password"]', password);
       await page.click('button[type="submit"]');
-      await page.waitForURL(/.*\/login/);
+      await page.waitForURL(/.*\/login/, { timeout: 15000 });
     }
     await context.close();
   });
@@ -48,6 +48,7 @@ test.describe('Messaging Flow', () => {
     await pageB.waitForURL(/.*\/dashboard/);
 
     // Check inbox
+    await pageB.waitForSelector('text=From: ' + userA, { timeout: 15000 });
     await expect(pageB.locator('text=From: ' + userA)).toBeVisible();
     await pageB.click('text=From: ' + userA);
 

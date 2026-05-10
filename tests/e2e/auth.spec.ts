@@ -14,7 +14,7 @@ test.describe('Authentication Flow', () => {
     await page.click('button[type="submit"]');
 
     // Wait for redirect to login
-    await expect(page).toHaveURL(/.*\/login/);
+    await page.waitForURL(/.*\/login/);
 
     // Login
     await page.fill('input[type="text"]', username);

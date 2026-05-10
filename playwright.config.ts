@@ -8,11 +8,5 @@ export default defineConfig({
   use: {
     baseURL: 'http://localhost:3000',
     trace: 'on-first-retry',
-  },
-  webServer: {
-    command: 'npm run start',
-    url: 'http://localhost:3000/health',
-    reuseExistingServer: !process.env.CI,
-    timeout: 10000,
   }
 });

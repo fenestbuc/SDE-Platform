@@ -1,0 +1,67 @@
+[2m[WebServer] [22m
+[2m[WebServer] [22m> sde-platform@2.0.0 build
+[2m[WebServer] [22m> tsc
+[2m[WebServer] [22m
+[2m[WebServer] [22m
+[2m[WebServer] [22m> client@0.0.0 build
+[2m[WebServer] [22m> tsc -b && vite build
+[2m[WebServer] [22m
+[2m[WebServer] [22m[36mvite v8.0.11 [32mbuilding client environment for production...[36m[39m
+[2m[WebServer] [22m[2Ktransforming...[2m[WebServer] [22m[32m✓[39m 32 modules transformed.
+[2m[WebServer] [22mrendering chunks...
+[2m[WebServer] [22mcomputing gzip size...
+[2m[WebServer] [22m[2mdist/[0m[32mindex.html                        [39m[2m[1m  0.40 kB[0m[0m[2m │ gzip:   0.27 kB[0m
+[2m[WebServer] [22m[2mdist/[0m[2massets/[0m[32mcrypto.worker-QfTc7Ryq.js  [39m[2m[1m 47.73 kB[0m[0m
+[2m[WebServer] [22m[2mdist/[0m[2massets/[0m[35mindex-WACWEgmF.css         [39m[2m[1m 12.93 kB[0m[0m[2m │ gzip:   3.22 kB[0m
+[2m[WebServer] [22m[2mdist/[0m[2massets/[0m[36mindex--2P94JR-.js          [39m[2m[1m450.27 kB[0m[0m[2m │ gzip: 136.60 kB[0m
+[2m[WebServer] [22m
+[2m[WebServer] [22m[32m✓ built in 297ms[39m
+[2m[WebServer] [22m
+[2m[WebServer] [22m> sde-platform@2.0.0 start
+[2m[WebServer] [22m> node -r dotenv/config dist/server.js
+[2m[WebServer] [22m
+[2m[WebServer] [22mSDE-Platform running on port 3000
+
+Running 1 test using 1 worker
+
+[2m[WebServer] [22m[34mprisma:query[39m SELECT `main`.`User`.`id`, `main`.`User`.`email`, `main`.`User`.`username`, `main`.`User`.`displayName`, `main`.`User`.`passwordHash`, `main`.`User`.`role`, `main`.`User`.`publicKey`, `main`.`User`.`encryptedPrivKey`, `main`.`User`.`salt`, `main`.`User`.`iv`, `main`.`User`.`createdAt`, `main`.`User`.`updatedAt`, `main`.`User`.`lastLoginAt` FROM `main`.`User` WHERE (`main`.`User`.`email` = ? OR `main`.`User`.`username` = ?) LIMIT ? OFFSET ?
+[2m[WebServer] [22m[34mprisma:query[39m INSERT INTO `main`.`User` (`id`, `email`, `username`, `passwordHash`, `role`, `publicKey`, `encryptedPrivKey`, `salt`, `iv`, `createdAt`, `updatedAt`) VALUES (?,?,?,?,?,?,?,?,?,?,?) RETURNING `id` AS `id`, `email` AS `email`, `username` AS `username`, `displayName` AS `displayName`, `passwordHash` AS `passwordHash`, `role` AS `role`, `publicKey` AS `publicKey`, `encryptedPrivKey` AS `encryptedPrivKey`, `salt` AS `salt`, `iv` AS `iv`, `createdAt` AS `createdAt`, `updatedAt` AS `updatedAt`, `lastLoginAt` AS `lastLoginAt`
+[2m[WebServer] [22m[34mprisma:query[39m SELECT `main`.`User`.`id`, `main`.`User`.`email`, `main`.`User`.`username`, `main`.`User`.`displayName`, `main`.`User`.`passwordHash`, `main`.`User`.`role`, `main`.`User`.`publicKey`, `main`.`User`.`encryptedPrivKey`, `main`.`User`.`salt`, `main`.`User`.`iv`, `main`.`User`.`createdAt`, `main`.`User`.`updatedAt`, `main`.`User`.`lastLoginAt` FROM `main`.`User` WHERE (`main`.`User`.`email` = ? OR `main`.`User`.`username` = ?) LIMIT ? OFFSET ?
+[2m[WebServer] [22m[34mprisma:query[39m INSERT INTO `main`.`User` (`id`, `email`, `username`, `passwordHash`, `role`, `publicKey`, `encryptedPrivKey`, `salt`, `iv`, `createdAt`, `updatedAt`) VALUES (?,?,?,?,?,?,?,?,?,?,?) RETURNING `id` AS `id`, `email` AS `email`, `username` AS `username`, `displayName` AS `displayName`, `passwordHash` AS `passwordHash`, `role` AS `role`, `publicKey` AS `publicKey`, `encryptedPrivKey` AS `encryptedPrivKey`, `salt` AS `salt`, `iv` AS `iv`, `createdAt` AS `createdAt`, `updatedAt` AS `updatedAt`, `lastLoginAt` AS `lastLoginAt`
+[2m[WebServer] [22m[34mprisma:query[39m SELECT `main`.`User`.`id`, `main`.`User`.`email`, `main`.`User`.`username`, `main`.`User`.`displayName`, `main`.`User`.`passwordHash`, `main`.`User`.`role`, `main`.`User`.`publicKey`, `main`.`User`.`encryptedPrivKey`, `main`.`User`.`salt`, `main`.`User`.`iv`, `main`.`User`.`createdAt`, `main`.`User`.`updatedAt`, `main`.`User`.`lastLoginAt` FROM `main`.`User` WHERE (`main`.`User`.`username` = ? AND 1=1) LIMIT ? OFFSET ?
+[2m[WebServer] [22m[34mprisma:query[39m UPDATE `main`.`User` SET `lastLoginAt` = ?, `updatedAt` = ? WHERE (`main`.`User`.`id` = ? AND 1=1) RETURNING `id` AS `id`, `email` AS `email`, `username` AS `username`, `displayName` AS `displayName`, `passwordHash` AS `passwordHash`, `role` AS `role`, `publicKey` AS `publicKey`, `encryptedPrivKey` AS `encryptedPrivKey`, `salt` AS `salt`, `iv` AS `iv`, `createdAt` AS `createdAt`, `updatedAt` AS `updatedAt`, `lastLoginAt` AS `lastLoginAt`
+[2m[WebServer] [22m[34mprisma:query[39m INSERT INTO `main`.`Session` (`id`, `userId`, `token`, `type`, `expiresAt`, `createdAt`) VALUES (?,?,?,?,?,?) RETURNING `id` AS `id`, `userId` AS `userId`, `token` AS `token`, `type` AS `type`, `expiresAt` AS `expiresAt`, `createdAt` AS `createdAt`
+[2m[WebServer] [22m[34mprisma:query[39m SELECT `main`.`User`.`id`, `main`.`User`.`username`, `main`.`User`.`email`, `main`.`User`.`displayName`, `main`.`User`.`publicKey`, `main`.`User`.`encryptedPrivKey`, `main`.`User`.`salt`, `main`.`User`.`iv`, `main`.`User`.`createdAt` FROM `main`.`User` WHERE (`main`.`User`.`id` = ? AND 1=1) LIMIT ? OFFSET ?
+[2m[WebServer] [22m[34mprisma:query[39m SELECT `main`.`Message`.`id`, `main`.`Message`.`senderId`, `main`.`Message`.`hasAttachment`, `main`.`Message`.`readAt`, `main`.`Message`.`createdAt` FROM `main`.`Message` WHERE `main`.`Message`.`recipientId` = ? ORDER BY `main`.`Message`.`createdAt` DESC LIMIT ? OFFSET ?
+[2m[WebServer] [22m[34mprisma:query[39m SELECT `main`.`Message`.`id`, `main`.`Message`.`senderId`, `main`.`Message`.`hasAttachment`, `main`.`Message`.`readAt`, `main`.`Message`.`createdAt` FROM `main`.`Message` WHERE `main`.`Message`.`recipientId` = ? ORDER BY `main`.`Message`.`createdAt` DESC LIMIT ? OFFSET ?
+[2m[WebServer] [22m[34mprisma:query[39m SELECT `main`.`User`.`id`, `main`.`User`.`username`, `main`.`User`.`displayName`, `main`.`User`.`publicKey` FROM `main`.`User` WHERE (`main`.`User`.`username` = ? AND 1=1) LIMIT ? OFFSET ?
+  ✘  1 tests/e2e/fileupload.spec.ts:24:7 › File Upload Flow › User A sends encrypted file to User B (15.6s)
+
+
+  1) tests/e2e/fileupload.spec.ts:24:7 › File Upload Flow › User A sends encrypted file to User B ──
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: locator('text=Message sent successfully!')
+    Expected: visible
+    Timeout: 15000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 15000ms[22m
+    [2m  - waiting for locator('text=Message sent successfully!')[22m
+
+
+      50 |
+      51 |     await pageA.click('button:has-text("Send Encrypted")');
+    > 52 |     await expect(pageA.locator('text=Message sent successfully!')).toBeVisible({ timeout: 15000 });
+         |                                                                    ^
+      53 |     await contextA.close();
+      54 |
+      55 |     // User B session
+        at /home/yash/hermes-workspace/SDE-Platform/tests/e2e/fileupload.spec.ts:52:68
+
+    Error Context: test-results/fileupload-File-Upload-Flo-163e6-ds-encrypted-file-to-User-B/error-context.md
+
+  1 failed
+    tests/e2e/fileupload.spec.ts:24:7 › File Upload Flow › User A sends encrypted file to User B ───

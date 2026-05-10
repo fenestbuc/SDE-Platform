@@ -18,6 +18,15 @@ export default function Dashboard() {
 
   useEffect(() => {
     loadMessages();
+
+    const handleNewMessage = () => {
+      // Reload messages if the active tab is inbox
+      if (tab === 'inbox') {
+        loadMessages();
+      }
+    };
+    window.addEventListener('ws:new_message', handleNewMessage);
+    return () => window.removeEventListener('ws:new_message', handleNewMessage);
   }, [tab]);
 
   const loadMessages = async () => {
@@ -57,12 +66,6 @@ export default function Dashboard() {
       });
       
       const msgPayload = await doEncryptText();
-      const formData = new FormData();
-      formData.append('recipientId', recipient.id);
-      formData.append('ephemeralPubKey', msgPayload.ephemeralPubKey);
-      formData.append('ciphertext', msgPayload.ciphertext);
-      formData.append('iv', msgPayload.iv);
-      formData.append('tag', msgPayload.tag);
       
       // Step 2: Encrypt file if present
       if (file) {
@@ -91,15 +94,55 @@ export default function Dashboard() {
         });
         
         const filePayload = await doEncryptFileChunked();
-        formData.append('fileIv', filePayload.iv);
-        formData.append('fileTag', filePayload.tag);
         
         const encryptedFile = new File([filePayload.rawEncryptedBlob], file.name, { type: file.type });
-        formData.append('file', encryptedFile);
+        
+        // --- V5 DIRECT S3 STREAMING / UPLOAD ---
+        setStatus('Requesting direct upload URL...');
+        const urlData = await apiFetch('/messages/upload-url', { 
+          method: 'POST', 
+          body: JSON.stringify({ filename: file.name, contentType: file.type })
+        });
+
+        setStatus('Uploading to S3 directly...');
+        const uploadRes = await fetch(urlData.url, {
+          method: 'PUT',
+          body: encryptedFile,
+          headers: { 'Content-Type': file.type || 'application/octet-stream' }
+        });
+        if (!uploadRes.ok) {
+          const text = await uploadRes.text();
+          throw new Error('Upload failed: ' + uploadRes.status + ' ' + text);
+        }
+
+        const formDataJson: any = {
+          recipientId: recipient.id,
+          ephemeralPubKey: msgPayload.ephemeralPubKey,
+          ciphertext: msgPayload.ciphertext,
+          iv: msgPayload.iv,
+          tag: msgPayload.tag,
+          fileIv: filePayload.iv,
+          fileTag: filePayload.tag,
+          storagePath: urlData.fileId,
+          filename: file.name,
+          fileSize: encryptedFile.size.toString(),
+          contentType: file.type
+        };
+
+        setStatus('Sending metadata...');
+        await apiFetch('/messages', { method: 'POST', body: JSON.stringify(formDataJson) });
+      } else {
+        const formDataJson = {
+          recipientId: recipient.id,
+          ephemeralPubKey: msgPayload.ephemeralPubKey,
+          ciphertext: msgPayload.ciphertext,
+          iv: msgPayload.iv,
+          tag: msgPayload.tag
+        };
+        setStatus('Sending...');
+        await apiFetch('/messages', { method: 'POST', body: JSON.stringify(formDataJson) });
       }
       
-      setStatus('Uploading...');
-      await apiFetch('/messages', { method: 'POST', body: formData });
       setStatus('Message sent successfully!');
       setBodyText('');
       setFile(null);
@@ -139,6 +182,7 @@ export default function Dashboard() {
       
       const text = await doDecryptText();
       setDecryptedBody(text);
+      console.log('Decrypted body set:', text);
       
       if (m.recipientId === sessionStorage.getItem('userId')) {
         await apiFetch(`/messages/${id}/read`, { method: 'POST' });
@@ -152,7 +196,10 @@ export default function Dashboard() {
     if (!worker || !activeMessage?.attachment) return;
     try {
       setStatus('Downloading encrypted file...');
-      const blob = await apiFetch(`/messages/${activeMessage.id}/attachment`);
+      
+      const fileUrlData = await apiFetch(`/messages/${activeMessage.id}/attachment`);
+      const fileRes = await fetch(fileUrlData.url);
+      const blob = await fileRes.blob();
       
       setStatus('Decrypting file (chunked)...');
       setProgress(0);

@@ -13,6 +13,7 @@ import { authRouter } from "./routes/auth";
 import { userRouter } from "./routes/users";
 import { messageRouter } from "./routes/messages";
 import { adminRouter } from "./routes/admin";
+import { notificationsRouter } from "./routes/notifications";
 
 const app = express();
 const server = createServer(app);
@@ -22,8 +23,9 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'"], // unsafe-inline needed for simple frontend without bundler
-      connectSrc: ["'self'", "ws:", "wss:"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "blob:"], // unsafe-inline needed for simple frontend without bundler
+      connectSrc: ["'self'", "ws:", "wss:", "http://localhost:9000", config.S3_ENDPOINT || ""],
+      workerSrc: ["'self'", "blob:"],
       imgSrc: ["'self'", "data:"],
     }
   }
@@ -38,6 +40,7 @@ app.use("/api/auth", authRouter);
 app.use("/api/users", userRouter);
 app.use("/api/messages", messageRouter);
 app.use("/api/admin", adminRouter);
+app.use("/api/notifications", notificationsRouter);
 
 app.get("/health", (req, res) => {
   res.json({ status: "ok", timestamp: new Date() });

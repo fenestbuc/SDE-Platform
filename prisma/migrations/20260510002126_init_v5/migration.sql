@@ -1,9 +1,21 @@
 -- CreateTable
+CREATE TABLE "PushSubscription" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "userId" TEXT NOT NULL,
+    "endpoint" TEXT NOT NULL,
+    "p256dh" TEXT NOT NULL,
+    "auth" TEXT NOT NULL,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "PushSubscription_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+-- CreateTable
 CREATE TABLE "User" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "email" TEXT NOT NULL,
     "username" TEXT NOT NULL,
     "displayName" TEXT,
+    "passwordHash" TEXT NOT NULL,
     "role" TEXT NOT NULL DEFAULT 'user',
     "publicKey" TEXT NOT NULL,
     "encryptedPrivKey" TEXT NOT NULL,
@@ -53,6 +65,12 @@ CREATE TABLE "Attachment" (
     "tag" TEXT NOT NULL,
     CONSTRAINT "Attachment_messageId_fkey" FOREIGN KEY ("messageId") REFERENCES "Message" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
+
+-- CreateIndex
+CREATE UNIQUE INDEX "PushSubscription_endpoint_key" ON "PushSubscription"("endpoint");
+
+-- CreateIndex
+CREATE INDEX "PushSubscription_userId_idx" ON "PushSubscription"("userId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "User_email_key" ON "User"("email");

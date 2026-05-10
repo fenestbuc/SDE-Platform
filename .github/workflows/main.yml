@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, v2 ]
+  pull_request:
+    branches: [ main, v2 ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    services:
+      db:
+        image: postgres:15
+        env:
+          POSTGRES_USER: sde
+          POSTGRES_PASSWORD: sdepassword
+          POSTGRES_DB: sdedb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Use Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: |
+        npm ci
+        cd src/client && npm ci
+
+    - name: Set up Environment
+      run: cp .env.example .env
+
+    - name: Build
+      run: |
+        npm run build
+        cd src/client && npm run build
+        
+    - name: Prisma Generate & Migrate
+      run: |
+        npx prisma generate
+        npx prisma migrate deploy
+
+    - name: Unit Tests
+      run: npm run test
+
+    - name: Install Playwright Browsers
+      run: npx playwright install --with-deps chromium
+
+    - name: E2E Tests
+      run: npm run test:e2e
+      env:
+        DATABASE_URL: "postgresql://sde:sdepassword@localhost:5432/sdedb?schema=public"

@@ -36,6 +36,10 @@ export function handleConnection(ws: WebSocket) {
   });
 }
 
+export function isUserOnline(userId: string): boolean {
+  return onlineUsers.has(userId);
+}
+
 export function notifyUser(userId: string, payload: any) {
   if (onlineUsers.has(userId)) {
     const sockets = onlineUsers.get(userId)!;

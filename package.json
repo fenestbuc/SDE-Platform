@@ -24,6 +24,7 @@
   "license": "MIT",
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1045.0",
+    "@aws-sdk/s3-request-presigner": "^3.1045.0",
     "@noble/curves": "^1.8.1",
     "@prisma/client": "^6.19.3",
     "bcryptjs": "^3.0.3",
@@ -33,7 +34,7 @@
     "express-rate-limit": "^7.5.0",
     "helmet": "^8.0.0",
     "jsonwebtoken": "^9.0.2",
-    "multer": "^1.4.5-lts.1",
+    "web-push": "^3.6.7",
     "ws": "^8.18.0",
     "zod": "^3.24.2"
   },
@@ -44,8 +45,8 @@
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
     "@types/jsonwebtoken": "^9.0.8",
-    "@types/multer": "^1.4.12",
     "@types/node": "^22.13.4",
+    "@types/web-push": "^3.6.4",
     "@types/ws": "^8.5.14",
     "@vitest/coverage-v8": "^3.0.5",
     "dotenv": "^17.4.2",

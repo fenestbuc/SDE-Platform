@@ -1,16 +1,45 @@
 import { Router } from "express";
-import multer from "multer";
 import { authMiddleware } from "../middleware/auth";
 import { MessageService } from "../services/messageService";
+import { FileService } from "../services/fileService";
+import * as fs from "fs/promises";
+import * as path from "path";
+
+import * as express from "express";
 
 export const messageRouter = Router();
-const upload = multer({ limits: { fileSize: 50 * 1024 * 1024 } }); // 50MB
+
+// Mock endpoints for E2E testing without S3
+messageRouter.put("/mock-upload/:id", express.raw({ type: '*/*', limit: '10mb' }), async (req, res) => {
+  await fs.mkdir("uploads", { recursive: true });
+  await fs.writeFile(path.join("uploads", req.params.id), req.body);
+  res.json({ success: true });
+});
+
+messageRouter.get("/mock-download/:id", async (req, res) => {
+  try {
+    const data = await fs.readFile(path.join("uploads", req.params.id));
+    res.send(data);
+  } catch (err) {
+    res.status(404).send("Not found");
+  }
+});
 
 messageRouter.use(authMiddleware);
 
-messageRouter.post("/", upload.single("file"), async (req, res, next) => {
+messageRouter.post("/upload-url", async (req, res, next) => {
   try {
-    const message = await MessageService.sendMessage(req.user!.id, req.body, req.file);
+    const { filename, contentType } = req.body;
+    const { url, fileId } = await FileService.getPresignedUploadUrl(filename, contentType);
+    res.json({ url, fileId });
+  } catch (err) {
+    next(err);
+  }
+});
+
+messageRouter.post("/", async (req, res, next) => {
+  try {
+    const message = await MessageService.sendMessage(req.user!.id, req.body);
     res.status(201).json(message);
   } catch (err) {
     next(err);
@@ -48,10 +77,8 @@ messageRouter.get("/:id", async (req, res, next) => {
 
 messageRouter.get("/:id/attachment", async (req, res, next) => {
   try {
-    const { buffer, attachment } = await MessageService.getAttachmentData(req.user!.id, req.params.id);
-    res.setHeader("Content-Type", attachment.contentType);
-    res.setHeader("Content-Disposition", `attachment; filename="${attachment.filename}"`);
-    res.send(buffer);
+    const url = await MessageService.getAttachmentUrl(req.user!.id, req.params.id);
+    res.json({ url });
   } catch (err) {
     next(err);
   }

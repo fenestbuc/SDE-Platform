@@ -1,9 +1,10 @@
 import { db } from "../db";
 import { FileService } from "./fileService";
-import { notifyUser } from "../websocket/handler";
+import { notifyUser, isUserOnline } from "../websocket/handler";
+import { NotificationService } from "./notificationService";
 
 export class MessageService {
-  static async sendMessage(senderId: string, data: any, file?: Express.Multer.File) {
+  static async sendMessage(senderId: string, data: any) {
     const recipient = await db.user.findUnique({ where: { id: data.recipientId } });
     if (!recipient) throw { status: 404, message: "Recipient not found" };
 
@@ -15,19 +16,18 @@ export class MessageService {
         ciphertext: data.ciphertext,
         iv: data.iv,
         tag: data.tag,
-        hasAttachment: !!file,
+        hasAttachment: !!data.storagePath,
       }
     });
 
-    if (file && data.fileIv && data.fileTag) {
-      const storagePath = await FileService.saveFile(file.buffer);
+    if (data.storagePath && data.fileIv && data.fileTag) {
       await db.attachment.create({
         data: {
           messageId: message.id,
-          filename: file.originalname,
-          storagePath,
-          fileSize: file.size,
-          contentType: file.mimetype,
+          filename: data.filename || "attachment",
+          storagePath: data.storagePath,
+          fileSize: parseInt(data.fileSize) || 0,
+          contentType: data.contentType || "application/octet-stream",
           iv: data.fileIv,
           tag: data.fileTag
         }
@@ -39,6 +39,14 @@ export class MessageService {
       messageId: message.id,
       senderId
     });
+
+    if (!isUserOnline(data.recipientId)) {
+      const sender = await db.user.findUnique({ where: { id: senderId } });
+      await NotificationService.sendPushToUser(data.recipientId, {
+        title: "New Encrypted Message",
+        body: `You received a new secure message from ${sender?.displayName || sender?.username}`
+      });
+    }
 
     return message;
   }
@@ -94,7 +102,7 @@ export class MessageService {
     return message;
   }
 
-  static async getAttachmentData(userId: string, messageId: string) {
+  static async getAttachmentUrl(userId: string, messageId: string) {
     const message = await db.message.findUnique({
       where: { id: messageId },
       include: { attachment: true }
@@ -105,8 +113,8 @@ export class MessageService {
       throw { status: 403, message: "Forbidden" };
     }
 
-    const buffer = await FileService.getFile(message.attachment.storagePath);
-    return { buffer, attachment: message.attachment };
+    const url = await FileService.getFileUrl(message.attachment.storagePath);
+    return url;
   }
 
   static async markAsRead(userId: string, messageId: string) {
