@@ -34,7 +34,7 @@ export function ComposeForm({ onMessageSent }: { onMessageSent: () => void }) {
               };
               worker.addEventListener('message', handler);
               worker.postMessage({ type: 'ENCRYPT_GROUP_PAYLOAD', id: msgId, payload: {
-                plaintext: bodyText,
+                plaintext: bodyText || " ",
                 senderKeyHex: symKey
               }});
             });
@@ -82,7 +82,7 @@ export function ComposeForm({ onMessageSent }: { onMessageSent: () => void }) {
         };
         worker.addEventListener('message', handler);
         worker.postMessage({ type: 'ENCRYPT_PAYLOAD', id: msgId, payload: {
-          plaintext: bodyText,
+          plaintext: bodyText || " ",
           recipientPubKeyHex: targetPubKey
         }});
       });
@@ -183,7 +183,7 @@ export function ComposeForm({ onMessageSent }: { onMessageSent: () => void }) {
   };
 
   return (
-    <div className="w-1/3">
+    <div className="w-full md:w-1/3">
       <h3 className="text-xl font-bold mb-4">Compose</h3>
       <form onSubmit={handleCompose} className="bg-white p-4 rounded shadow">
         <div className="mb-4">
@@ -192,7 +192,7 @@ export function ComposeForm({ onMessageSent }: { onMessageSent: () => void }) {
         </div>
         <div className="mb-4">
           <label className="block text-sm font-medium mb-1 text-gray-700">Message</label>
-          <textarea id="compose-body" value={bodyText} onChange={e => setBodyText(e.target.value)} className="w-full border p-2 rounded focus:ring-blue-500 focus:border-blue-500" rows={4} required></textarea>
+          <textarea id="compose-body" value={bodyText} onChange={e => setBodyText(e.target.value)} className="w-full border p-2 rounded focus:ring-blue-500 focus:border-blue-500" rows={4} />
         </div>
         <div className="mb-4">
           <label className="block text-sm font-medium mb-1 text-gray-700">Attachment (Up to 1GB chunked)</label>
