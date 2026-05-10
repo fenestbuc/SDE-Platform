@@ -23,8 +23,12 @@
       "destination": "/api/index.ts"
     },
     {
+      "source": "/assets/(.*)",
+      "destination": "/src/client/dist/assets/$1"
+    },
+    {
       "source": "/(.*)",
-      "destination": "/src/client/dist/$1"
+      "destination": "/src/client/dist/index.html"
     }
   ]
 }
