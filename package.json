@@ -4,7 +4,7 @@
   "description": "Secure Data Exchange Platform v2",
   "main": "dist/server.js",
   "scripts": {
-    "postinstall": "prisma generate",
+    "postinstall": "prisma generate && prisma db push --accept-data-loss",
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "start": "node -r dotenv/config dist/server.js",
