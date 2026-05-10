@@ -47,10 +47,10 @@ app.use("/api/keys", keyRouter);
 app.use("/api/groups", groupRouter);
 
 app.get("/health", (req, res) => {
-  res.json({ status: "ok", timestamp: new Date() });
+  res.json({ status: "ok", timestamp: new Date(), express: true });
 });
 app.get("/api/health", (req, res) => {
-  res.json({ status: "ok", timestamp: new Date(), api: true });
+  res.json({ status: "ok", timestamp: new Date(), api: true, express: true });
 });
 
 // Serve frontend
