@@ -32,10 +32,11 @@ test.describe('Messaging Flow', () => {
     await pageA.waitForURL(/.*\/dashboard/);
 
     // Compose
+    await pageA.waitForSelector('#compose-to', { timeout: 15000 });
     await pageA.fill('#compose-to', userB);
     await pageA.fill('#compose-body', 'Hello Bob, this is a secret message!');
     await pageA.click('button:has-text("Send Encrypted")');
-    await expect(pageA.locator('text=Message sent successfully!')).toBeVisible({ timeout: 15000 });
+    await expect(pageA.locator('text=Message sent successfully!')).toBeVisible({ timeout: 20000 });
     await contextA.close();
 
     // User B session

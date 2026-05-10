@@ -5,17 +5,31 @@ import { NotificationService } from "./notificationService";
 
 export class MessageService {
   static async sendMessage(senderId: string, data: any) {
-    const recipient = await db.user.findUnique({ where: { id: data.recipientId } });
-    if (!recipient) throw { status: 404, message: "Recipient not found" };
+    let recipientId = data.recipientId;
+    
+    // Group Message Support
+    if (data.groupId) {
+      const group = await db.group.findUnique({
+        where: { id: data.groupId },
+        include: { members: true }
+      });
+      if (!group) throw { status: 404, message: "Group not found" };
+      if (!group.members.some(m => m.userId === senderId)) throw { status: 403, message: "Not a group member" };
+    } else {
+      const recipient = await db.user.findUnique({ where: { id: recipientId } });
+      if (!recipient) throw { status: 404, message: "Recipient not found" };
+    }
 
     const message = await db.message.create({
       data: {
         senderId,
-        recipientId: data.recipientId,
+        recipientId: recipientId || null,
+        groupId: data.groupId || null,
         ephemeralPubKey: data.ephemeralPubKey,
         ciphertext: data.ciphertext,
         iv: data.iv,
         tag: data.tag,
+        signature: data.signature,
         hasAttachment: !!data.storagePath,
       }
     });
@@ -34,18 +48,40 @@ export class MessageService {
       });
     }
 
-    notifyUser(data.recipientId, {
-      type: "new_message",
-      messageId: message.id,
-      senderId
-    });
-
-    if (!isUserOnline(data.recipientId)) {
-      const sender = await db.user.findUnique({ where: { id: senderId } });
-      await NotificationService.sendPushToUser(data.recipientId, {
-        title: "New Encrypted Message",
-        body: `You received a new secure message from ${sender?.displayName || sender?.username}`
+    if (recipientId) {
+      notifyUser(recipientId, {
+        type: "new_message",
+        messageId: message.id,
+        senderId
       });
+
+      if (!isUserOnline(recipientId)) {
+        const sender = await db.user.findUnique({ where: { id: senderId } });
+        await NotificationService.sendPushToUser(recipientId, {
+          title: "New Encrypted Message",
+          body: `You received a new secure message from ${sender?.displayName || sender?.username}`
+        });
+      }
+    } else if (data.groupId) {
+      // Notify all group members except sender
+      const group = await db.group.findUnique({ where: { id: data.groupId }, include: { members: true } });
+      const sender = await db.user.findUnique({ where: { id: senderId } });
+      for (const m of group!.members) {
+        if (m.userId !== senderId) {
+          notifyUser(m.userId, {
+            type: "new_message",
+            messageId: message.id,
+            senderId,
+            groupId: data.groupId
+          });
+          if (!isUserOnline(m.userId)) {
+            await NotificationService.sendPushToUser(m.userId, {
+              title: "New Group Message",
+              body: `New message in ${group!.name} from ${sender?.displayName || sender?.username}`
+            });
+          }
+        }
+      }
     }
 
     return message;
@@ -53,17 +89,24 @@ export class MessageService {
 
   static async getInbox(userId: string, page = 1, limit = 20) {
     return db.message.findMany({
-      where: { recipientId: userId },
+      where: {
+        OR: [
+          { recipientId: userId },
+          { group: { members: { some: { userId } } } }
+        ]
+      },
       orderBy: { createdAt: "desc" },
       skip: (page - 1) * limit,
       take: limit,
       select: {
         id: true,
         senderId: true,
+        groupId: true,
         hasAttachment: true,
         readAt: true,
         createdAt: true,
-        sender: { select: { username: true, displayName: true } }
+        sender: { select: { username: true, displayName: true } },
+        group: { select: { name: true } }
       }
     });
   }
@@ -77,10 +120,12 @@ export class MessageService {
       select: {
         id: true,
         recipientId: true,
+        groupId: true,
         hasAttachment: true,
         readAt: true,
         createdAt: true,
-        recipient: { select: { username: true, displayName: true } }
+        recipient: { select: { username: true, displayName: true } },
+        group: { select: { name: true } }
       }
     });
   }
@@ -90,13 +135,21 @@ export class MessageService {
       where: { id: messageId },
       include: {
         attachment: { select: { filename: true, fileSize: true, contentType: true, iv: true, tag: true } },
-        sender: { select: { username: true, displayName: true, publicKey: true } }
+        sender: { select: { username: true, displayName: true, publicKey: true } },
+        group: { include: { members: true } }
       }
     });
     
     if (!message) throw { status: 404, message: "Message not found" };
-    if (message.senderId !== userId && message.recipientId !== userId) {
-      throw { status: 403, message: "Forbidden" };
+    
+    if (message.groupId) {
+      if (!message.group!.members.some(m => m.userId === userId)) {
+        throw { status: 403, message: "Forbidden" };
+      }
+    } else {
+      if (message.senderId !== userId && message.recipientId !== userId) {
+        throw { status: 403, message: "Forbidden" };
+      }
     }
 
     return message;
@@ -105,12 +158,19 @@ export class MessageService {
   static async getAttachmentUrl(userId: string, messageId: string) {
     const message = await db.message.findUnique({
       where: { id: messageId },
-      include: { attachment: true }
+      include: { attachment: true, group: { include: { members: true } } }
     });
     
     if (!message || !message.attachment) throw { status: 404, message: "Attachment not found" };
-    if (message.senderId !== userId && message.recipientId !== userId) {
-      throw { status: 403, message: "Forbidden" };
+    
+    if (message.groupId) {
+      if (!message.group!.members.some(m => m.userId === userId)) {
+        throw { status: 403, message: "Forbidden" };
+      }
+    } else {
+      if (message.senderId !== userId && message.recipientId !== userId) {
+        throw { status: 403, message: "Forbidden" };
+      }
     }
 
     const url = await FileService.getFileUrl(message.attachment.storagePath);
@@ -120,6 +180,11 @@ export class MessageService {
   static async markAsRead(userId: string, messageId: string) {
     const message = await db.message.findUnique({ where: { id: messageId } });
     if (!message) return false;
+    
+    // For groups, read receipts are more complex. 
+    // We'll skip setting readAt on the main message record for groups to avoid marking it read for everyone.
+    if (message.groupId) return false;
+
     if (message.recipientId !== userId) return false;
 
     if (!message.readAt) {
@@ -150,3 +215,4 @@ export class MessageService {
     await db.message.delete({ where: { id: messageId } });
   }
 }
+

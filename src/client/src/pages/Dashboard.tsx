@@ -121,6 +121,7 @@ export default function Dashboard() {
           ciphertext: msgPayload.ciphertext,
           iv: msgPayload.iv,
           tag: msgPayload.tag,
+          signature: msgPayload.signature,
           fileIv: filePayload.iv,
           fileTag: filePayload.tag,
           storagePath: urlData.fileId,
@@ -137,7 +138,8 @@ export default function Dashboard() {
           ephemeralPubKey: msgPayload.ephemeralPubKey,
           ciphertext: msgPayload.ciphertext,
           iv: msgPayload.iv,
-          tag: msgPayload.tag
+          tag: msgPayload.tag,
+          signature: msgPayload.signature
         };
         setStatus('Sending...');
         await apiFetch('/messages', { method: 'POST', body: JSON.stringify(formDataJson) });
@@ -176,7 +178,9 @@ export default function Dashboard() {
           ivB64: m.iv,
           tagB64: m.tag,
           ePubHex: m.ephemeralPubKey,
-          isString: true
+          isString: true,
+          signatureHex: m.signature,
+          senderPubKeyHex: m.sender.publicKey
         }});
       });
       

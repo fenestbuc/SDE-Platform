@@ -1,5 +1,5 @@
 import * as secp from "@noble/curves/secp256k1";
-import { bufToHex, hexToBuf, bufToBase64, base64ToBuf, getPBKDF2Key, hkdfDerive } from "../utils/crypto-helpers";
+import { bufToHex, hexToBuf, base64ToBuf, getPBKDF2Key, hkdfDerive, bufToBase64 } from "../utils/crypto-helpers";
 
 let decryptedPrivateKey: string | null = null;
 const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB
@@ -68,14 +68,22 @@ self.onmessage = async (e) => {
       const tag = cipherBytes.slice(-16);
       const ciphertext = cipherBytes.slice(0, -16);
       
+      if (!decryptedPrivateKey) throw new Error("Private key not loaded in worker for signing");
+
       const result = {
         ephemeralPubKey: ePubHex,
         ePrivHex,
         ciphertext: bufToBase64(ciphertext),
         iv: bufToBase64(iv),
         tag: bufToBase64(tag),
-        rawEncryptedBuf: ciphertextBuf
+        rawEncryptedBuf: ciphertextBuf,
+        signature: ""
       };
+
+      const dataToSign = new TextEncoder().encode(result.ephemeralPubKey + result.ciphertext);
+      const hash = new Uint8Array(await crypto.subtle.digest("SHA-256", dataToSign));
+      const sig = secp.secp256k1.sign(hash, hexToBuf(decryptedPrivateKey));
+      result.signature = sig.toCompactHex();
       
       self.postMessage({ id, success: true, result });
     }
@@ -83,7 +91,14 @@ self.onmessage = async (e) => {
     else if (type === "DECRYPT_PAYLOAD") {
       if (!decryptedPrivateKey) throw new Error("Private key not loaded in worker");
       
-      const { ciphertextB64, ivB64, tagB64, ePubHex, isString, infoStr, rawCiphertextBuf } = payload;
+      const { ciphertextB64, ivB64, tagB64, ePubHex, isString, infoStr, rawCiphertextBuf, signatureHex, senderPubKeyHex } = payload;
+      
+      if (signatureHex && senderPubKeyHex) {
+        const dataToVerify = new TextEncoder().encode(ePubHex + ciphertextB64);
+        const hash = new Uint8Array(await crypto.subtle.digest("SHA-256", dataToVerify));
+        const isValid = secp.secp256k1.verify(signatureHex, hash, hexToBuf(senderPubKeyHex));
+        if (!isValid) throw new Error("Digital signature verification failed! Message may be tampered with or sender is spoofed.");
+      }
       
       const ePubBuf = hexToBuf(ePubHex);
       const sharedSecret = secp.secp256k1.getSharedSecret(hexToBuf(decryptedPrivateKey), ePubBuf);

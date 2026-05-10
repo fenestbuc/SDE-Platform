@@ -7,6 +7,7 @@ const envSchema = z.object({
   JWT_SECRET: z.string(),
   JWT_REFRESH_SECRET: z.string(),
   UPLOAD_DIR: z.string().default("uploads"),
+  REDIS_URL: z.string().default("redis://localhost:6379"),
   S3_BUCKET: z.string().optional(),
   S3_REGION: z.string().optional(),
   AWS_ACCESS_KEY_ID: z.string().optional(),

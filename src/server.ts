@@ -14,6 +14,8 @@ import { userRouter } from "./routes/users";
 import { messageRouter } from "./routes/messages";
 import { adminRouter } from "./routes/admin";
 import { notificationsRouter } from "./routes/notifications";
+import { keyRouter } from "./routes/keys";
+import { groupRouter } from "./routes/groups";
 
 const app = express();
 const server = createServer(app);
@@ -41,6 +43,8 @@ app.use("/api/users", userRouter);
 app.use("/api/messages", messageRouter);
 app.use("/api/admin", adminRouter);
 app.use("/api/notifications", notificationsRouter);
+app.use("/api/keys", keyRouter);
+app.use("/api/groups", groupRouter);
 
 app.get("/health", (req, res) => {
   res.json({ status: "ok", timestamp: new Date() });

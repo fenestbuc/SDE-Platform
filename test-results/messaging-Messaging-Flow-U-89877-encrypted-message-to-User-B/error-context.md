@@ -12,10 +12,48 @@
 # Error details
 
 ```
-Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3000/register
-Call log:
-  - navigating to "http://localhost:3000/register", waiting until "load"
+Error: expect(locator).toBeVisible() failed
 
+Locator: locator('text=Message sent successfully!')
+Expected: visible
+Timeout: 15000ms
+Error: element(s) not found
+
+Call log:
+  - Expect "toBeVisible" with timeout 15000ms
+  - waiting for locator('text=Message sent successfully!')
+
+```
+
+# Page snapshot
+
+```yaml
+- generic [ref=e3]:
+  - navigation [ref=e4]:
+    - generic [ref=e5]: SDE Dashboard
+    - generic [ref=e6]:
+      - generic [ref=e7]: Welcome, alice_1778373546921
+      - button "Logout" [ref=e8]
+  - generic [ref=e9]:
+    - generic [ref=e10]:
+      - heading "Compose" [level=3] [ref=e11]
+      - generic [ref=e12]:
+        - generic [ref=e13]:
+          - generic [ref=e14]: Recipient Username
+          - textbox [ref=e15]: bob_1778373546921
+        - generic [ref=e16]:
+          - generic [ref=e17]: Message
+          - textbox [ref=e18]: Hello Bob, this is a secret message!
+        - generic [ref=e19]:
+          - generic [ref=e20]: Attachment (Up to 1GB chunked)
+          - button "Choose File" [ref=e21]
+        - button "Send Encrypted" [active] [ref=e22]
+        - generic [ref=e24]: "Error: undefined"
+    - generic [ref=e25]:
+      - generic [ref=e26]:
+        - button "Inbox" [ref=e27]
+        - button "Sent" [ref=e28]
+      - paragraph [ref=e30]: No messages found.
 ```
 
 # Test source
@@ -34,8 +72,7 @@ Call log:
   11 |     const page = await context.newPage();
   12 |     
   13 |     for (const u of [userA, userB]) {
-> 14 |       await page.goto('/register');
-     |                  ^ Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3000/register
+  14 |       await page.goto('/register');
   15 |       await page.fill('input[type="email"]', `${u}@example.com`);
   16 |       await page.fill('input[type="text"]', u);
   17 |       await page.fill('input[type="password"]', password);
@@ -59,7 +96,8 @@ Call log:
   35 |     await pageA.fill('#compose-to', userB);
   36 |     await pageA.fill('#compose-body', 'Hello Bob, this is a secret message!');
   37 |     await pageA.click('button:has-text("Send Encrypted")');
-  38 |     await expect(pageA.locator('text=Message sent successfully!')).toBeVisible({ timeout: 15000 });
+> 38 |     await expect(pageA.locator('text=Message sent successfully!')).toBeVisible({ timeout: 15000 });
+     |                                                                    ^ Error: expect(locator).toBeVisible() failed
   39 |     await contextA.close();
   40 | 
   41 |     // User B session

@@ -1,8 +1,35 @@
 import WebSocket from "ws";
-import jwt from "jsonwebtoken";
+import * as jwt from "jsonwebtoken";
 import { config } from "../config";
+import Redis from "ioredis";
 
-const onlineUsers = new Map<string, Set<WebSocket>>();
+const pub = new Redis(config.REDIS_URL);
+const sub = new Redis(config.REDIS_URL);
+
+// In-memory set of sockets for this node instance only
+const localSockets = new Map<string, Set<WebSocket>>();
+
+sub.subscribe("sde_messages", (err) => {
+  if (err) console.error("Redis sub error:", err);
+});
+
+sub.on("message", (channel, messageStr) => {
+  if (channel === "sde_messages") {
+    try {
+      const { recipientId, payload } = JSON.parse(messageStr);
+      if (localSockets.has(recipientId)) {
+        const msg = JSON.stringify(payload);
+        localSockets.get(recipientId)!.forEach((ws) => {
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(msg);
+          }
+        });
+      }
+    } catch (e) {
+      console.error("Failed to process redis message:", e);
+    }
+  }
+});
 
 export function handleConnection(ws: WebSocket) {
   let userId: string | null = null;
@@ -14,8 +41,8 @@ export function handleConnection(ws: WebSocket) {
         const decoded = jwt.verify(msg.token, config.JWT_SECRET) as any;
         userId = decoded.id;
         
-        if (!onlineUsers.has(userId!)) onlineUsers.set(userId!, new Set());
-        onlineUsers.get(userId!)!.add(ws);
+        if (!localSockets.has(userId!)) localSockets.set(userId!, new Set());
+        localSockets.get(userId!)!.add(ws);
         
         ws.send(JSON.stringify({ type: "auth_success" }));
       }
@@ -28,26 +55,18 @@ export function handleConnection(ws: WebSocket) {
   });
 
   ws.on("close", () => {
-    if (userId && onlineUsers.has(userId)) {
-      const userSockets = onlineUsers.get(userId)!;
+    if (userId && localSockets.has(userId)) {
+      const userSockets = localSockets.get(userId)!;
       userSockets.delete(ws);
-      if (userSockets.size === 0) onlineUsers.delete(userId);
+      if (userSockets.size === 0) localSockets.delete(userId);
     }
   });
 }
 
 export function isUserOnline(userId: string): boolean {
-  return onlineUsers.has(userId);
+  return localSockets.has(userId); // Local only, real online status would need a Redis Set
 }
 
 export function notifyUser(userId: string, payload: any) {
-  if (onlineUsers.has(userId)) {
-    const sockets = onlineUsers.get(userId)!;
-    const msg = JSON.stringify(payload);
-    sockets.forEach(ws => {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(msg);
-      }
-    });
-  }
+  pub.publish("sde_messages", JSON.stringify({ recipientId: userId, payload }));
 }

@@ -1,6 +1,11 @@
 version: '3.8'
 
 services:
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+
   app:
     build: .
     ports:
@@ -8,6 +13,7 @@ services:
     environment:
       - NODE_ENV=production
       - DATABASE_URL=file:./dev.db
+      - REDIS_URL=redis://redis:6379
       - JWT_SECRET=${JWT_SECRET:-dev-secret}
       - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:-dev-refresh-secret}
       - UPLOAD_DIR=/app/uploads
