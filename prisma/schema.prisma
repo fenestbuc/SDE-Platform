@@ -68,6 +68,7 @@ model Message {
   iv              String      // base64 AES-GCM IV
   tag             String      // base64 AES-GCM auth tag
   signature       String?     // hex-encoded ECDSA signature of (ciphertext + ephemeralPubKey)
+  preKeyId        Int?        // NEW in v6
   hasAttachment   Boolean     @default(false)
   attachment      Attachment?
   readAt          DateTime?

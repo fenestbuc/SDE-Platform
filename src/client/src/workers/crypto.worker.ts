@@ -1,8 +1,36 @@
 import * as secp from "@noble/curves/secp256k1";
-import { bufToHex, hexToBuf, base64ToBuf, getPBKDF2Key, hkdfDerive, bufToBase64 } from "../utils/crypto-helpers";
+import { bufToHex, hexToBuf, bufToBase64, base64ToBuf, getPBKDF2Key, hkdfDerive } from "../utils/crypto-helpers";
 
 let decryptedPrivateKey: string | null = null;
 const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB
+
+// Shared secret generation for PFS (X3DH)
+export function computeX3DHSharedSecret(IKa: Uint8Array, EKa: Uint8Array, IKb: Uint8Array, SPKb: Uint8Array, OPKb: Uint8Array | null): Uint8Array {
+  // A simplified X3DH computation combining multiple DH outputs.
+  // DH1 = DH(IKa, SPKb)
+  // DH2 = DH(EKa, IKb)
+  // DH3 = DH(EKa, SPKb)
+  // DH4 = DH(EKa, OPKb) (if OPKb exists)
+  
+  const dh1 = secp.secp256k1.getSharedSecret(IKa, SPKb);
+  const dh2 = secp.secp256k1.getSharedSecret(EKa, IKb);
+  const dh3 = secp.secp256k1.getSharedSecret(EKa, SPKb);
+  
+  let combined = new Uint8Array(dh1.length + dh2.length + dh3.length);
+  combined.set(dh1);
+  combined.set(dh2, dh1.length);
+  combined.set(dh3, dh1.length + dh2.length);
+  
+  if (OPKb) {
+    const dh4 = secp.secp256k1.getSharedSecret(EKa, OPKb);
+    const newCombined = new Uint8Array(combined.length + dh4.length);
+    newCombined.set(combined);
+    newCombined.set(dh4, combined.length);
+    combined = newCombined;
+  }
+  
+  return combined;
+}
 
 self.onmessage = async (e) => {
   const { type, payload, id } = e.data;
@@ -128,13 +156,74 @@ self.onmessage = async (e) => {
       }
     }
     
+    else if (type === "ENCRYPT_GROUP_PAYLOAD") {
+      const { plaintext, senderKeyHex } = payload;
+      
+      const aesKeyBuf = hexToBuf(senderKeyHex);
+      const aesKey = await crypto.subtle.importKey("raw", aesKeyBuf, { name: "AES-GCM" }, false, ["encrypt"]);
+      
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const encoded = typeof plaintext === "string" ? new TextEncoder().encode(plaintext) : new Uint8Array(plaintext);
+      
+      const ciphertextBuf = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, aesKey, encoded);
+      const cipherBytes = new Uint8Array(ciphertextBuf);
+      const tag = cipherBytes.slice(-16);
+      const ciphertext = cipherBytes.slice(0, -16);
+      
+      const result = {
+        ciphertext: bufToBase64(ciphertext),
+        iv: bufToBase64(iv),
+        tag: bufToBase64(tag),
+        rawEncryptedBuf: ciphertextBuf
+      };
+      
+      self.postMessage({ id, success: true, result });
+    }
+
+    else if (type === "DECRYPT_GROUP_PAYLOAD") {
+      const { ciphertextB64, ivB64, tagB64, senderKeyHex, isString, rawCiphertextBuf } = payload;
+      
+      const aesKeyBuf = hexToBuf(senderKeyHex);
+      const aesKey = await crypto.subtle.importKey("raw", aesKeyBuf, { name: "AES-GCM" }, false, ["decrypt"]);
+      
+      const iv = base64ToBuf(ivB64);
+      const tag = base64ToBuf(tagB64);
+      let cipherBuf;
+      if (rawCiphertextBuf) {
+        cipherBuf = new Uint8Array(rawCiphertextBuf);
+      } else if (typeof ciphertextB64 === "string") {
+        cipherBuf = base64ToBuf(ciphertextB64);
+      } else {
+        cipherBuf = new Uint8Array(ciphertextB64);
+      }
+      
+      const combined = new Uint8Array(cipherBuf.length + tag.length);
+      combined.set(cipherBuf);
+      combined.set(tag, cipherBuf.length);
+      
+      const decryptedBuf = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, aesKey, combined);
+      
+      if (isString) {
+        self.postMessage({ id, success: true, result: new TextDecoder().decode(decryptedBuf) });
+      } else {
+        self.postMessage({ id, success: true, result: decryptedBuf });
+      }
+    }
+    
     // NEW CHUNKED ENCRYPTION
     else if (type === "ENCRYPT_FILE_CHUNKED") {
       const { fileBlob, recipientPubKeyHex, infoStr, existingEPrivHex, existingEPubHex } = payload;
       
-      let ePrivHex = existingEPrivHex;
-      let ePubHex = existingEPubHex;
-      if (!ePrivHex || !ePubHex) throw new Error("ePriv/ePub required for file encryption");
+      console.log("WORKER ENCRYPT_FILE_CHUNKED PAYLOAD:", payload);
+
+      let ePrivHex = existingEPrivHex || null;
+      let ePubHex = existingEPubHex || null;
+      if (!existingEPrivHex || !existingEPubHex) {
+        const privKey = secp.secp256k1.utils.randomPrivateKey();
+        ePrivHex = bufToHex(privKey);
+        ePubHex = bufToHex(secp.secp256k1.getPublicKey(privKey));
+      }
+      if (!decryptedPrivateKey) throw new Error("Private key not loaded in worker for signing file");
       
       const sharedSecret = secp.secp256k1.getSharedSecret(hexToBuf(ePrivHex), hexToBuf(recipientPubKeyHex));
       const ePubBuf = hexToBuf(ePubHex);

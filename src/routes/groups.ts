@@ -31,7 +31,19 @@ groupRouter.post("/", async (req, res, next) => {
   }
 });
 
-// Get User's Groups
+// Group Message
+groupRouter.post("/:id/messages", async (req, res, next) => {
+  try {
+    const groupId = req.params.id;
+    const data = { ...req.body, groupId };
+    // Reuse MessageService which now supports groupId
+    const { MessageService } = require("../services/messageService");
+    const message = await MessageService.sendMessage(req.user!.id, data);
+    res.json(message);
+  } catch (err) {
+    next(err);
+  }
+});
 groupRouter.get("/", async (req, res, next) => {
   try {
     const groups = await db.group.findMany({

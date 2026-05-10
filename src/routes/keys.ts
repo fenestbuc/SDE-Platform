@@ -33,14 +33,21 @@ keyRouter.get("/bundle/:username", async (req, res, next) => {
     });
     
     if (!user) throw { status: 404, message: "User not found" };
-    if (user.preKeys.length === 0) throw { status: 404, message: "No prekeys available" };
+    
+    if (!user.preKeys || user.preKeys.length === 0) {
+      return res.json({
+        id: user.id,
+        identityKey: user.publicKey,
+        preKeyId: null,
+        preKey: null
+      });
+    }
     
     const preKey = user.preKeys[0];
-    
-    // Delete the one-time prekey
     await db.preKey.delete({ where: { id: preKey.id } });
     
     res.json({
+      id: user.id,
       identityKey: user.publicKey,
       preKeyId: preKey.keyId,
       preKey: preKey.publicKey

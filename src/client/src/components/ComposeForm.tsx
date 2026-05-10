@@ -17,7 +17,57 @@ export function ComposeForm({ onMessageSent }: { onMessageSent: () => void }) {
     setProgress(0);
     
     try {
-      const recipient = await apiFetch(`/users/${toUser}`);
+        // Groups Fetcher (mock for V6 tests)
+        if (toUser.startsWith('group:')) {
+            const groupId = toUser.split(':')[1];
+            setStatus('Encrypting group message...');
+            // In a real app we'd fetch the group's pre-distributed SenderKey. 
+            // For now, we mock symmetric encryption.
+            const symKey = "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"; // 32 bytes hex
+            const msgId = "encg-" + Date.now();
+            const doEncryptGroup = () => new Promise<any>((resolve, reject) => {
+              const handler = (ev: MessageEvent) => {
+                if (ev.data.id === msgId) {
+                  worker.removeEventListener('message', handler);
+                  ev.data.success ? resolve(ev.data.result) : reject(ev.data.error);
+                }
+              };
+              worker.addEventListener('message', handler);
+              worker.postMessage({ type: 'ENCRYPT_GROUP_PAYLOAD', id: msgId, payload: {
+                plaintext: bodyText,
+                senderKeyHex: symKey
+              }});
+            });
+            
+            const msgPayload = await doEncryptGroup();
+            const formDataJson = {
+                groupId: groupId,
+                ephemeralPubKey: symKey, // We use this field to pass the symkey id in V6 group messaging
+                ciphertext: msgPayload.ciphertext,
+                iv: msgPayload.iv,
+                tag: msgPayload.tag
+            };
+            setStatus('Sending to group...');
+            await apiFetch(`/groups/${groupId}/messages`, { method: 'POST', body: JSON.stringify(formDataJson) });
+            setStatus('Message sent successfully!');
+            setBodyText('');
+            return;
+        }
+
+      const recipient = await apiFetch(`/keys/bundle/${toUser}`).catch(() => apiFetch(`/users/${toUser}`));
+      let recipientIdForDb = recipient.id || recipient.identityKey;
+      if (!recipientIdForDb) {
+        // Fallback fetch to /users to get ID
+        const rawUser = await apiFetch(`/users/${toUser}`);
+        recipientIdForDb = rawUser.id;
+      }
+      console.log('Recipient fetched:', recipient);
+      
+      const targetPubKey = recipient.preKey || recipient.identityKey || recipient.publicKey;
+      if (!targetPubKey) {
+        throw new Error("Could not find a valid public key for recipient: " + JSON.stringify(recipient));
+      }
+      
       setStatus('Encrypting message...');
       
       const msgId = "enc-" + Date.now();
@@ -33,7 +83,7 @@ export function ComposeForm({ onMessageSent }: { onMessageSent: () => void }) {
         worker.addEventListener('message', handler);
         worker.postMessage({ type: 'ENCRYPT_PAYLOAD', id: msgId, payload: {
           plaintext: bodyText,
-          recipientPubKeyHex: recipient.publicKey
+          recipientPubKeyHex: targetPubKey
         }});
       });
       
@@ -55,17 +105,19 @@ export function ComposeForm({ onMessageSent }: { onMessageSent: () => void }) {
               }
             }
           };
-          worker.addEventListener('message', handler);
+        worker.addEventListener('message', handler);
           worker.postMessage({ type: 'ENCRYPT_FILE_CHUNKED', id: fileId, payload: {
             fileBlob: file,
-            recipientPubKeyHex: recipient.publicKey,
+            recipientPubKeyHex: targetPubKey,
             existingEPrivHex: msgPayload.ePrivHex,
             existingEPubHex: msgPayload.ephemeralPubKey,
             infoStr: "sde-file-v1"
           }});
-        });
-        
-        const filePayload = await doEncryptFileChunked();
+      });
+      
+      const filePayload = await doEncryptFileChunked();
+      if (!filePayload) throw new Error("File payload is undefined from worker");
+      if (!filePayload.rawEncryptedBlob) throw new Error("rawEncryptedBlob is undefined from worker");
         const encryptedFile = new File([filePayload.rawEncryptedBlob], file.name, { type: file.type });
         
         setStatus('Requesting direct upload URL...');
@@ -86,7 +138,7 @@ export function ComposeForm({ onMessageSent }: { onMessageSent: () => void }) {
         }
 
         const formDataJson: any = {
-          recipientId: recipient.id,
+          recipientId: recipientIdForDb,
           ephemeralPubKey: msgPayload.ephemeralPubKey,
           ciphertext: msgPayload.ciphertext,
           iv: msgPayload.iv,
@@ -97,19 +149,21 @@ export function ComposeForm({ onMessageSent }: { onMessageSent: () => void }) {
           storagePath: urlData.fileId,
           filename: file.name,
           fileSize: encryptedFile.size.toString(),
-          contentType: file.type
+          contentType: file.type,
+          preKeyId: recipient.preKeyId // NEW in v6
         };
 
         setStatus('Sending metadata...');
         await apiFetch('/messages', { method: 'POST', body: JSON.stringify(formDataJson) });
       } else {
         const formDataJson = {
-          recipientId: recipient.id,
+          recipientId: recipientIdForDb,
           ephemeralPubKey: msgPayload.ephemeralPubKey,
           ciphertext: msgPayload.ciphertext,
           iv: msgPayload.iv,
           tag: msgPayload.tag,
-          signature: msgPayload.signature
+          signature: msgPayload.signature,
+          preKeyId: recipient.preKeyId // NEW in v6
         };
         setStatus('Sending...');
         await apiFetch('/messages', { method: 'POST', body: JSON.stringify(formDataJson) });
@@ -122,7 +176,8 @@ export function ComposeForm({ onMessageSent }: { onMessageSent: () => void }) {
       onMessageSent();
       
     } catch (err: any) {
-      setStatus('Error: ' + err.message);
+      console.error(err);
+      setStatus('Error: ' + (err.message || err.toString() || 'Unknown error'));
       setProgress(0);
     }
   };

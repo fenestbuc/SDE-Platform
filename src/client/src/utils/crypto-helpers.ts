@@ -1,6 +1,9 @@
 import * as secp from "@noble/curves/secp256k1";
 
-export const hexToBuf = (hex: string) => new Uint8Array(hex.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
+export const hexToBuf = (hex: string) => {
+  if (!hex) return new Uint8Array();
+  return new Uint8Array(hex.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
+};
 export const bufToHex = (buf: Uint8Array | ArrayBuffer) => Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
 export const bufToBase64 = (buf: Uint8Array | ArrayBuffer) => {
   let binary = '';

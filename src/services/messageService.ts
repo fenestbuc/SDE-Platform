@@ -31,6 +31,7 @@ export class MessageService {
         tag: data.tag,
         signature: data.signature,
         hasAttachment: !!data.storagePath,
+        preKeyId: data.preKeyId || null // NEW in v6
       }
     });
 
