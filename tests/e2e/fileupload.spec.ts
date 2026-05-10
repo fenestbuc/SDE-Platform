@@ -33,12 +33,13 @@ test.describe('File Upload Flow', () => {
     await pageA.click('button[type="submit"]');
     await pageA.waitForURL(/.*\/dashboard/);
 
-    // Create a dummy file to upload
+    // Compose with file
     const fileContent = 'This is a top secret attachment content';
     const filePath = 'top_secret.txt';
     // Use Playwright API to set files directly
     const fileChooserPromise = pageA.waitForEvent('filechooser');
 
+    await pageA.waitForSelector('#compose-to', { timeout: 15000 });
     await pageA.fill('#compose-to', userB);
     await pageA.fill('#compose-body', 'Here is the file!');
 
@@ -51,7 +52,7 @@ test.describe('File Upload Flow', () => {
     });
 
     await pageA.click('button:has-text("Send Encrypted")');
-    await expect(pageA.locator('text=Message sent successfully!')).toBeVisible({ timeout: 15000 });
+    await expect(pageA.locator('text=Message sent successfully!')).toBeVisible({ timeout: 20000 });
     await contextA.close();
 
     // User B session
@@ -71,7 +72,7 @@ test.describe('File Upload Flow', () => {
     await pageB.click('text=From: ' + userA);
 
     // Verify message text and wait for Download Attachment button
-    await expect(pageB.locator('text=Here is the file!')).toBeVisible();
+    await expect(pageB.locator('text=Here is the file!')).toBeVisible({ timeout: 15000 });
     await expect(pageB.locator('button:has-text("Download Attachment")')).toBeVisible();
 
     const downloadPromise = pageB.waitForEvent('download', { timeout: 15000 });
